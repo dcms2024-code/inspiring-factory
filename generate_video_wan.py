@@ -35,11 +35,16 @@ def wait_for_completion(ws_url: str, prompt_id: str, client_id: str) -> None:
     ws = websocket.WebSocket()
     ws.connect(f"{ws_url}?clientId={client_id}")
     while True:
-        msg = json.loads(ws.recv())
+        raw = ws.recv()
+        if isinstance(raw, bytes):
+            continue
+        msg = json.loads(raw)
         if msg.get("type") == "executing":
             data = msg.get("data", {})
             if data.get("node") is None and data.get("prompt_id") == prompt_id:
                 break
+        elif msg.get("type") == "execution_error":
+            raise RuntimeError(f"ComfyUI error: {msg.get('data', {})}")
     ws.close()
 
 

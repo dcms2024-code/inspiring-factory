@@ -35,6 +35,7 @@ Rules:
 - No extra keys beyond the schema.
 - Create exactly {scenes_count} scenes.
 - Each scene's visual_prompt must be in English and suitable for image generation.
+- Each scene's visual_prompt must reflect the figure's age at that point in their life (child, young adult, middle-aged, elderly). Show the figure aging across the {scenes_count} scenes chronologically.
 
 Exact JSON schema:
 {{

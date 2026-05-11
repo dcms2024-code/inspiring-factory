@@ -1,5 +1,20 @@
 {
   "channel_name": "Ciencia e Ideas",
+  "cta": {
+    "enabled": true,
+    "lines": [
+      "Acompaname a descubrir cada dia",
+      "un personaje que ha cambiado la historia.",
+      "",
+      "Sigueme y dale like"
+    ],
+    "show_last_seconds": 6,
+    "fade_in_seconds": 1.5,
+    "font_size": 28,
+    "font_color": "white",
+    "box_color": "black@0.6",
+    "box_border": 12
+  },
   "language": "es",
   "tone": "inspirador, cinematografico, serio, humano, esperanzador",
   "duration_seconds_target": 60,
@@ -37,7 +52,7 @@
     "Termina con una reflexion inspiradora, no con una moraleja generica."
   ],
   "image": {
-    "comfy_url": "http://127.0.0.1:8188",
+    "comfy_url": "http://192.168.1.107:8188",
     "checkpoint": "juggernaut.safetensors",
     "width": 768,
     "height": 1344,
@@ -49,7 +64,7 @@
   "video": {
     "use_wan_i2v": true,
     "slideshow_motion": "kenburns",
-    "comfy_url": "http://127.0.0.1:8188",
+    "comfy_url": "http://192.168.1.107:8188",
     "comfy_input_dir": "/home/andreu/ai-tools/ComfyUI/input",
     "diffusion_model": "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
     "text_encoder": "umt5-xxl-enc-bf16.safetensors",

@@ -23,6 +23,46 @@ def run_ffmpeg(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
+def cta_filter(duration: float, cta_cfg: dict) -> str | None:
+    if not cta_cfg.get("enabled"):
+        return None
+    lines = [l for l in cta_cfg.get("lines", [])]
+    if not lines:
+        return None
+
+    show_last = float(cta_cfg.get("show_last_seconds", 6))
+    fade_in = float(cta_cfg.get("fade_in_seconds", 1.5))
+    font_size = int(cta_cfg.get("font_size", 28))
+    font_color = cta_cfg.get("font_color", "white")
+    box_color = cta_cfg.get("box_color", "black@0.6")
+    box_border = int(cta_cfg.get("box_border", 12))
+    start_t = max(0, duration - show_last)
+    line_height = int(font_size * 1.5)
+
+    filters = []
+    total_lines = len(lines)
+    center_y_start = f"(h/2)-({total_lines}*{line_height}/2)"
+
+    for i, line in enumerate(lines):
+        if not line:
+            continue
+        text_escaped = line.replace("'", "\\'").replace(":", "\\:")
+        y_expr = f"({center_y_start})+({i}*{line_height})"
+        alpha_expr = f"min(1\\,(t-{start_t:.2f})/{fade_in:.2f})"
+        f = (
+            f"drawtext=text='{text_escaped}'"
+            f":fontsize={font_size}"
+            f":fontcolor={font_color}@1"
+            f":box=1:boxcolor={box_color}:boxborderw={box_border}"
+            f":x=(w-text_w)/2:y={y_expr}"
+            f":enable='gte(t\\,{start_t:.2f})'"
+            f":alpha='{alpha_expr}'"
+        )
+        filters.append(f)
+
+    return ",".join(filters)
+
+
 def subtitle_filter(path: str, subtitles_cfg: dict) -> str:
     subs_escaped = path.replace("\\", "/").replace(":", "\\:")
     style = subtitles_cfg.get("force_style")
@@ -66,6 +106,7 @@ def main() -> int:
     channel = load_json(args.channel)
     video_cfg = channel.get("video", {})
     subtitles_cfg = channel.get("subtitles", {})
+    cta_cfg = channel.get("cta", {})
     use_wan = bool(video_cfg.get("use_wan_i2v", False))
 
     with open("stories/story.json", "r", encoding="utf-8") as f:
@@ -96,6 +137,7 @@ def main() -> int:
         cmd1 = [
             "ffmpeg",
             "-y",
+            "-stream_loop", "-1",
             "-f",
             "concat",
             "-safe",
@@ -118,7 +160,8 @@ def main() -> int:
             "192k",
             "-pix_fmt",
             "yuv420p",
-            "-shortest",
+            "-t",
+            str(duration),
             tmp_video,
         ]
         print(f"Rendering from clips: {len(clips)} clips, audio {duration:.1f}s")
@@ -245,7 +288,12 @@ def main() -> int:
     subs_tmp = os.path.join("output", "subs_tmp.srt")
     shutil.copy(subs_src, subs_tmp)
 
-    vf = subtitle_filter(subs_tmp, subtitles_cfg)
+    vf_parts = [subtitle_filter(subs_tmp, subtitles_cfg)]
+    cta = cta_filter(duration, cta_cfg)
+    if cta:
+        vf_parts.append(cta)
+    vf = ",".join(vf_parts)
+    fade_start = max(0, duration - 2.0)
     cmd2 = [
         "ffmpeg",
         "-y",
@@ -253,6 +301,8 @@ def main() -> int:
         tmp_video,
         "-vf",
         vf,
+        "-af",
+        f"afade=t=out:st={fade_start:.2f}:d=2.0",
         "-c:v",
         "libx264",
         "-preset",
@@ -260,7 +310,9 @@ def main() -> int:
         "-crf",
         "23",
         "-c:a",
-        "copy",
+        "aac",
+        "-b:a",
+        "192k",
         final_path,
     ]
 
