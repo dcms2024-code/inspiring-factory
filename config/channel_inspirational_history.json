@@ -1,0 +1,39 @@
+{
+  "channel_name": "Inspirational History",
+  "language": "en",
+  "tone": "uplifting, warm, optimistic, inspiring",
+  "duration_seconds_target": 50,
+  "scenes_count": 5,
+  "voice": {
+    "provider": "edge_tts",
+    "name": "en-GB-RyanNeural"
+  },
+  "story_rules": [
+    "Write about a historical figure (deceased).",
+    "Avoid sensationalism and avoid explicit violence.",
+    "Keep it inspiring and suitable for general audiences.",
+    "Use short, vivid sentences. One idea per sentence.",
+    "End with a motivating closing line."
+  ],
+  "image": {
+    "comfy_url": "http://127.0.0.1:8188",
+    "checkpoint": "juggernaut.safetensors",
+    "width": 640,
+    "height": 1120,
+    "steps": 25,
+    "cfg": 7,
+    "prompt_suffix": "warm lighting, hopeful atmosphere, stylized illustration, cinematic composition, vertical composition, highly detailed, no text, no watermark",
+    "negative_prompt": "blurry, low quality, watermark, text, logo, distorted, bad anatomy"
+  },
+  "video": {
+    "use_wan_i2v": false,
+    "slideshow_motion": "kenburns",
+    "comfy_url": "http://127.0.0.1:8188",
+    "width": 832,
+    "height": 480,
+    "fps": 24,
+    "frames": 81,
+    "steps": 20,
+    "cfg": 6.0
+  }
+}

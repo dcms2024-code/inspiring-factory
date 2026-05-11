@@ -1,0 +1,78 @@
+{
+  "channel_name": "Ciencia e Ideas",
+  "language": "es",
+  "tone": "inspirador, cinematografico, serio, humano, esperanzador",
+  "duration_seconds_target": 60,
+  "scenes_count": 6,
+  "content_focus": [
+    "personajes historicos de ciencia",
+    "ideas que cambiaron la historia",
+    "arte solo cuando ayuda a explicar ciencia o pensamiento"
+  ],
+  "voice": {
+    "provider": "edge_tts",
+    "name": "es-ES-AlvaroNeural",
+    "rate": "-8%",
+    "volume": "+0%",
+    "pitch": "-8Hz",
+    "postprocess_filter": "rubberband=pitch=0.86:formant=preserved,loudnorm=I=-16:LRA=11:TP=-1.5",
+    "output_path": "audio/narration.mp3"
+  },
+  "subtitles": {
+    "font_name": "DejaVu Sans",
+    "font_size": 8,
+    "outline": 1,
+    "shadow": 1,
+    "alignment": 2,
+    "margin_v": 28,
+    "position": "bottom",
+    "notes": "Small subtitles near the bottom so they do not cover the artwork."
+  },
+  "story_rules": [
+    "Escribe en espanol.",
+    "El protagonista debe ser una figura historica fallecida del ambito cientifico o intelectual.",
+    "Evita sensacionalismo, violencia explicita y afirmaciones dudosas.",
+    "Usa frases cortas, visuales y narrables.",
+    "Una idea por frase.",
+    "Termina con una reflexion inspiradora, no con una moraleja generica."
+  ],
+  "image": {
+    "comfy_url": "http://127.0.0.1:8188",
+    "checkpoint": "juggernaut.safetensors",
+    "width": 768,
+    "height": 1344,
+    "steps": 32,
+    "cfg": 6.5,
+    "prompt_suffix": "realistic animated feature film style, cinematic historical composition, warm light, expressive eyes, natural skin texture, rich period detail, vertical portrait framing, no text, no watermark",
+    "negative_prompt": "low quality, blurry, bad anatomy, distorted hands, extra fingers, deformed face, watermark, logo, text, readable letters, modern laptop, modern clothing, oversaturated, two heads, duplicate head, duplicate face, cloned face, multiple people, second person"
+  },
+  "video": {
+    "use_wan_i2v": true,
+    "slideshow_motion": "kenburns",
+    "comfy_url": "http://127.0.0.1:8188",
+    "comfy_input_dir": "/home/andreu/ai-tools/ComfyUI/input",
+    "diffusion_model": "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+    "text_encoder": "umt5-xxl-enc-bf16.safetensors",
+    "vae_model": "Wan2_1_VAE_bf16.safetensors",
+    "use_clip_vision": false,
+    "clip_vision": "open-clip-vit-huge_fp16.safetensors",
+    "base_precision": "fp16",
+    "quantization": "fp8_e4m3fn_scaled",
+    "blocks_to_swap": 14,
+    "width": 480,
+    "height": 832,
+    "fps": 24,
+    "output_fps": 30,
+    "frames": 145,
+    "steps": 12,
+    "cfg": 5.0,
+    "negative_prompt": "low quality, blurry, static image, frozen frame, violent motion, morphing face, extra person, duplicate head, warped eyes, watermark, text"
+  },
+  "hardware_profile": {
+    "target_machine": "Ubuntu RTX 3090",
+    "host": "192.168.1.107",
+    "ssh_user": "andreu",
+    "recommended": true,
+    "notes": "Use this profile on the 3090 machine. The local Windows RTX 3070 can preview, but final WAN video should render on the 3090."
+  }
+}
