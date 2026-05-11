@@ -8,4 +8,4 @@ def ask_mistral(prompt: str) -> str:
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response["message"]["content"]
+    return response.message.content

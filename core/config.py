@@ -13,7 +13,7 @@ def repo_root() -> str:
 
 
 def default_channel_config_path() -> str:
-    return os.path.join(repo_root(), "config", "channel_inspirational_history.json")
+    return os.path.join(repo_root(), "config", "channel_inspirational_science_es.json")
 
 
 def default_figures_path() -> str:

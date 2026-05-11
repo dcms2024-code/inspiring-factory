@@ -123,3 +123,4 @@ Git ignora:
 - `*.mp4`, `*.mp3`, `*.wav`, `*.srt`, `*.log`
 
 Esto mantiene GitHub limpio con codigo y configuracion, no con renders temporales.
+
