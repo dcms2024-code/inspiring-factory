@@ -35,6 +35,8 @@ def main() -> int:
         story_cmd += ["--figures", args.figures]
 
     run_step("1) Generate story JSON", story_cmd)
+    # Kill Ollama after story generation to free VRAM for WAN I2V
+    subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
     run_step("2) Generate images (ComfyUI)", [python, "auto_generate_images.py", "--channel", args.channel])
     run_step("3) Generate voice + subtitles", [python, "generate_voice.py", "--channel", args.channel])
 
