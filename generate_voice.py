@@ -6,6 +6,7 @@ import shutil
 import subprocess
 
 import edge_tts
+from phonetics import apply_phonetics
 
 from core.config import default_channel_config_path, load_json
 
@@ -60,7 +61,7 @@ async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) ->
     with open("stories/story.json", "r", encoding="utf-8") as f:
         story = json.load(f)
 
-    narration = build_narration(story, cta_lines)
+    narration = apply_phonetics(build_narration(story, cta_lines))
     os.makedirs("audio", exist_ok=True)
 
     voice_name = voice_cfg.get("name", "en-GB-RyanNeural")

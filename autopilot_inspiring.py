@@ -200,8 +200,22 @@ def run_pipeline(figure):
             log(f"ERROR en {script}: {r.stderr}")
             return False
 
+    # Liberar VRAM antes de WAN (SDXL queda cargado tras generar imagenes)
+    try:
+        import urllib.request as _ur
+        _ur.urlopen(_ur.Request(
+            "http://127.0.0.1:8188/free",
+            data=b'{"unload_models":true,"free_memory":true}',
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        ), timeout=10)
+        log('ComfyUI: VRAM liberada')
+        time.sleep(10)
+    except Exception as _e:
+        log(f'ComfyUI /free: {_e}')
+
     # WAN (background)
-    log("Lanzando WAN...")
+    log('Lanzando WAN...')
     wan_log = open(DIR / f"{slug(figure)}.log", "a")
     subprocess.Popen([PYTHON, "generate_video_wan.py", "--channel", CHANNEL],
                      stdout=wan_log, stderr=wan_log)
