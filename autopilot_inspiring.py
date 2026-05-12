@@ -118,9 +118,33 @@ FIGURES = [
 
 DONE = {"Nikola Tesla", "Ada Lovelace", "Alan Turing", "Grace Hopper"}
 
+QUEUE_MIN = 3   # Genera hasta tener este mínimo
+QUEUE_MAX = 5   # Para de generar cuando hay este número en cola
+
 
 def log(msg):
     print(f"[autopilot] {msg}", flush=True)
+
+
+def queue_size():
+    r = subprocess.run(
+        ["ssh", PI, f"ls {QUEUE_DIR}/*.mp4 2>/dev/null | wc -l"],
+        capture_output=True, text=True
+    )
+    try:
+        return int(r.stdout.strip())
+    except:
+        return 0
+
+
+def wait_for_queue_space():
+    while True:
+        n = queue_size()
+        if n < QUEUE_MAX:
+            log(f"Cola Pi: {n} videos — generando siguiente")
+            return
+        log(f"Cola Pi llena ({n}/{QUEUE_MAX}) — esperando que baje a {QUEUE_MIN}...")
+        time.sleep(3600)  # revisar cada hora
 
 
 def load_state():
@@ -287,6 +311,7 @@ def main():
                 save_state(state)
                 continue
 
+        wait_for_queue_space()
         success = run_pipeline(figure)
         if success:
             done_set.add(figure)
