@@ -10,7 +10,7 @@ import edge_tts
 from core.config import default_channel_config_path, load_json
 
 
-def build_narration(story: dict) -> str:
+def build_narration(story: dict, cta_lines: list[str] | None = None) -> str:
     figure_name = (story.get("figure") or {}).get("name")
     parts: list[str] = []
     if figure_name:
@@ -21,6 +21,10 @@ def build_narration(story: dict) -> str:
         parts.append(scene.get("description", ""))
     if story.get("ending"):
         parts.append(story["ending"])
+    if cta_lines:
+        cta_text = " ".join(line.strip() for line in cta_lines if line.strip())
+        if cta_text:
+            parts.append(cta_text)
 
     return " ... ".join([p.strip() for p in parts if p and p.strip()])
 
@@ -52,11 +56,11 @@ def apply_audio_filter(src_path: str, out_path: str, audio_filter: str) -> None:
     os.replace(tmp_path, out_path)
 
 
-async def generate_voice(voice_cfg: dict) -> None:
+async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) -> None:
     with open("stories/story.json", "r", encoding="utf-8") as f:
         story = json.load(f)
 
-    narration = build_narration(story)
+    narration = build_narration(story, cta_lines)
     os.makedirs("audio", exist_ok=True)
 
     voice_name = voice_cfg.get("name", "en-GB-RyanNeural")
@@ -97,8 +101,10 @@ def main() -> int:
 
     channel = load_json(args.channel)
     voice_cfg = channel.get("voice", {})
+    cta_cfg = channel.get("cta", {})
+    cta_lines = cta_cfg.get("lines") if cta_cfg else None
 
-    asyncio.run(generate_voice(voice_cfg))
+    asyncio.run(generate_voice(voice_cfg, cta_lines))
     print("OK: audio/narration.mp3 + audio/subtitles.srt")
     return 0
 
