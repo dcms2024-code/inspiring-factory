@@ -135,7 +135,7 @@ def build_i2v_workflow(
                 "force_offload": True,
                 "model_to_offload": ["2", 0],
                 "use_disk_cache": False,
-                "device": "cpu",
+                "device": "gpu",
             },
         },
         "5": {"class_type": "WanVideoVAELoader", "inputs": {"model_name": vae_model, "precision": "bf16", "use_cpu_cache": False, "verbose": False}},
@@ -151,7 +151,7 @@ def build_i2v_workflow(
                 "pad_color": "0, 0, 0",
                 "crop_position": "center",
                 "divisible_by": 16,
-                "device": "cpu",
+                "device": "gpu",
             },
         },
         "8": {

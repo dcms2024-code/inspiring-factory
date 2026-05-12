@@ -210,7 +210,7 @@ def run_pipeline(figure):
             method="POST"
         ), timeout=10)
         log('ComfyUI: VRAM liberada')
-        time.sleep(10)
+        time.sleep(60)
     except Exception as _e:
         log(f'ComfyUI /free: {_e}')
 
