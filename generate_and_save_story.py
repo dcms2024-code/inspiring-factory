@@ -35,7 +35,10 @@ Rules:
 - No extra keys beyond the schema.
 - Create exactly {scenes_count} scenes.
 - Each scene's visual_prompt must be in English and suitable for image generation.
-- Each scene's visual_prompt must reflect the figure's age at that point in their life (child, young adult, middle-aged, elderly). Show the figure aging across the {scenes_count} scenes chronologically.
+- STRICT AGE PROGRESSION: The figure's apparent age must NEVER decrease from one scene to the next. Each scene must show the figure at the same age or older than the previous scene. No flashbacks, no going back in time.
+- Age guide for {scenes_count} scenes: scenes 1-2 show childhood or youth, scenes 3-4 show young adult, scenes 5-6 show mature adult, scenes 7-8 show elderly, scene {scenes_count} shows very elderly or a legacy tribute (memorial, statue, modern impact).
+- FORBIDDEN in visual_prompts for scenes 5 and beyond: words like 'young', 'child', 'early career', 'early life', 'as a student', 'early computer' — these imply ages already shown in earlier scenes.
+- Each scene must be set LATER in time than the previous scene. Never repeat a setting or period already shown.
 
 Exact JSON schema:
 {{
