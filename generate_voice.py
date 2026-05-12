@@ -57,12 +57,14 @@ def apply_audio_filter(src_path: str, out_path: str, audio_filter: str) -> None:
     os.replace(tmp_path, out_path)
 
 
-async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) -> None:
-    with open("stories/story.json", "r", encoding="utf-8") as f:
+async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None,
+                         story_path: str = "stories/story.json",
+                         output_dir: str = "audio") -> None:
+    with open(story_path, "r", encoding="utf-8") as f:
         story = json.load(f)
 
     narration = apply_phonetics(build_narration(story, cta_lines))
-    os.makedirs("audio", exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     voice_name = voice_cfg.get("name", "en-GB-RyanNeural")
     communicate = edge_tts.Communicate(
@@ -74,8 +76,12 @@ async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) ->
     )
     submaker = edge_tts.SubMaker()
 
-    raw_audio_path = "audio/narration_raw.mp3"
-    final_audio_path = voice_cfg.get("output_path", "audio/narration.mp3")
+    raw_audio_path = f"{output_dir}/narration_raw.mp3"
+    # Respect output_path from config only when using default audio dir
+    if output_dir == "audio":
+        final_audio_path = voice_cfg.get("output_path", f"{output_dir}/narration.mp3")
+    else:
+        final_audio_path = f"{output_dir}/narration.mp3"
     os.makedirs(os.path.dirname(final_audio_path) or ".", exist_ok=True)
 
     with open(raw_audio_path, "wb") as audio_file:
@@ -85,7 +91,7 @@ async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) ->
             elif chunk["type"] == "SentenceBoundary":
                 submaker.feed(chunk)
 
-    with open("audio/subtitles.srt", "w", encoding="utf-8") as srt_file:
+    with open(f"{output_dir}/subtitles.srt", "w", encoding="utf-8") as srt_file:
         srt_file.write(submaker.get_srt())
 
     post_filter = voice_cfg.get("postprocess_filter")
@@ -98,6 +104,8 @@ async def generate_voice(voice_cfg: dict, cta_lines: list[str] | None = None) ->
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--channel", default=default_channel_config_path())
+    parser.add_argument("--story", default="stories/story.json", help="Input story JSON path")
+    parser.add_argument("--output-dir", default="audio", help="Output directory for audio files")
     args = parser.parse_args()
 
     channel = load_json(args.channel)
@@ -105,8 +113,10 @@ def main() -> int:
     cta_cfg = channel.get("cta", {})
     cta_lines = cta_cfg.get("lines") if cta_cfg else None
 
-    asyncio.run(generate_voice(voice_cfg, cta_lines))
-    print("OK: audio/narration.mp3 + audio/subtitles.srt")
+    asyncio.run(generate_voice(voice_cfg, cta_lines,
+                               story_path=args.story,
+                               output_dir=args.output_dir))
+    print(f"OK: {args.output_dir}/narration.mp3 + {args.output_dir}/subtitles.srt")
     return 0
 
 

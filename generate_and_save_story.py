@@ -73,6 +73,7 @@ def main() -> int:
     parser.add_argument("--channel", default=default_channel_config_path())
     parser.add_argument("--figures", default=default_figures_path())
     parser.add_argument("--figure", default=None, help="Override figure name")
+    parser.add_argument("--output", default="stories/story.json", help="Output JSON path")
     args = parser.parse_args()
 
     channel = load_json(args.channel)
@@ -84,11 +85,11 @@ def main() -> int:
 
     data = parse_json_strict(raw)
 
-    os.makedirs("stories", exist_ok=True)
-    with open("stories/story.json", "w", encoding="utf-8") as f:
+    os.makedirs(__import__("os").path.dirname(args.output) or ".", exist_ok=True)
+    with open(args.output, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"OK: stories/story.json  (figure={figure_name})")
+    print(f"OK: {args.output}  (figure={figure_name})")
     return 0
 
 

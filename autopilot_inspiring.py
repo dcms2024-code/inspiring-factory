@@ -13,6 +13,7 @@ PI = "andreu@192.168.1.60"
 QUEUE_DIR = "/home/andreu/youtube_bot/queue/inspiring-factory"
 CHANNEL = "config/channel_inspirational_science_es.json"
 STATE_FILE = DIR / "autopilot_state.json"
+STAGING_DIR = DIR / "staging"
 
 FIGURES = [
     "Ada Lovelace",        # 1 ✓ publicada
@@ -118,8 +119,8 @@ FIGURES = [
 
 DONE = {"Nikola Tesla", "Ada Lovelace", "Alan Turing", "Grace Hopper"}
 
-QUEUE_MIN = 3   # Genera hasta tener este mínimo
-QUEUE_MAX = 5   # Para de generar cuando hay este número en cola
+QUEUE_MIN = 3
+QUEUE_MAX = 5
 
 
 def log(msg):
@@ -144,7 +145,7 @@ def wait_for_queue_space():
             log(f"Cola Pi: {n} videos — generando siguiente")
             return
         log(f"Cola Pi llena ({n}/{QUEUE_MAX}) — esperando que baje a {QUEUE_MIN}...")
-        time.sleep(3600)  # revisar cada hora
+        time.sleep(3600)
 
 
 def load_state():
@@ -173,7 +174,7 @@ def wait_for_clip09(timeout_hours=5):
     return False
 
 
-def run_pipeline(figure):
+def run_pipeline(figure, next_figure=None):
     log(f"=== Iniciando: {figure} ===")
     os.chdir(DIR)
 
@@ -182,15 +183,32 @@ def run_pipeline(figure):
                      "audio/*", "output/final_short.mp4"]:
         subprocess.run(f"rm -f {DIR}/{pattern}", shell=True)
 
-    # Ollama
-    subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
-    time.sleep(3)
-    subprocess.Popen(["ollama", "serve"],
-                     stdout=open("/tmp/ollama.log", "w"), stderr=subprocess.STDOUT)
-    time.sleep(8)
+    # Usar staging si está disponible (historia + voz pre-generadas)
+    staging = STAGING_DIR / slug(figure)
+    staged_story = staging / "story.json"
+    staged_narration = staging / "narration.mp3"
+    staged_srt = staging / "subtitles.srt"
+    use_staging = staged_story.exists() and staged_narration.exists()
 
-    # Historia + voz + imágenes
-    for script in ["generate_and_save_story.py", "generate_voice.py", "auto_generate_images.py"]:
+    if use_staging:
+        log(f"Usando staging para historia+voz de {figure}")
+        os.makedirs(DIR / "stories", exist_ok=True)
+        os.makedirs(DIR / "audio", exist_ok=True)
+        shutil.copy2(staged_story, DIR / "stories/story.json")
+        shutil.copy2(staged_narration, DIR / "audio/narration.mp3")
+        if staged_srt.exists():
+            shutil.copy2(staged_srt, DIR / "audio/subtitles.srt")
+        scripts_to_run = ["auto_generate_images.py"]
+    else:
+        # Ollama solo necesario si vamos a generar historia
+        subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
+        time.sleep(3)
+        subprocess.Popen(["ollama", "serve"],
+                         stdout=open("/tmp/ollama.log", "w"), stderr=subprocess.STDOUT)
+        time.sleep(8)
+        scripts_to_run = ["generate_and_save_story.py", "generate_voice.py", "auto_generate_images.py"]
+
+    for script in scripts_to_run:
         r = subprocess.run([PYTHON, script, "--channel", CHANNEL,
                             "--figure", figure] if script == "generate_and_save_story.py"
                            else [PYTHON, script, "--channel", CHANNEL],
@@ -200,7 +218,7 @@ def run_pipeline(figure):
             log(f"ERROR en {script}: {r.stderr}")
             return False
 
-    # Liberar VRAM antes de WAN (SDXL queda cargado tras generar imagenes)
+    # Liberar VRAM antes de WAN
     try:
         import urllib.request as _ur
         _ur.urlopen(_ur.Request(
@@ -220,12 +238,24 @@ def run_pipeline(figure):
     subprocess.Popen([PYTHON, "generate_video_wan.py", "--channel", CHANNEL],
                      stdout=wan_log, stderr=wan_log)
 
+    # Pre-generar historia+voz del siguiente personaje mientras WAN corre
+    if next_figure:
+        next_staging = STAGING_DIR / slug(next_figure)
+        if not (next_staging / "story.json").exists():
+            log(f"Iniciando pre-generación de '{next_figure}' en background...")
+            subprocess.Popen(
+                [PYTHON, "prestage.py", "--figure", next_figure, "--channel", CHANNEL],
+                cwd=DIR,
+                stdout=open(DIR / f"prestage_{slug(next_figure)}.log", "w"),
+                stderr=subprocess.STDOUT
+            )
+
     # Esperar clip_09
     if not wait_for_clip09():
         log("TIMEOUT en WAN")
         return False
 
-    time.sleep(15)  # margen para que el archivo se cierre
+    time.sleep(15)
 
     # Ensamblar
     log("Ensamblando...")
@@ -274,10 +304,17 @@ def main():
     state = load_state()
     done_set = set(state.get("done", []))
 
-    for figure in FIGURES:
+    # Build list of pending figures for next_figure lookup
+    pending = [f for f in FIGURES if f not in done_set]
+
+    for i, figure in enumerate(FIGURES):
         if figure in done_set:
             log(f"Saltando (ya hecho): {figure}")
             continue
+
+        # Compute next pending figure for pre-staging
+        remaining = [f for f in FIGURES[FIGURES.index(figure)+1:] if f not in done_set]
+        next_figure = remaining[0] if remaining else None
 
         # Si Katherine Johnson ya tiene imágenes/clips, continuar desde donde está
         if figure == "Katherine Johnson":
@@ -291,11 +328,20 @@ def main():
                                  stdout=wan_log, stderr=wan_log)
             if (clips_exist or images_exist) and not clip09.exists():
                 log("Katherine Johnson WAN en curso — esperando clip_09...")
+                if next_figure:
+                    next_staging = STAGING_DIR / slug(next_figure)
+                    if not (next_staging / "story.json").exists():
+                        log(f"Pre-generando '{next_figure}' en background...")
+                        subprocess.Popen(
+                            [PYTHON, "prestage.py", "--figure", next_figure, "--channel", CHANNEL],
+                            cwd=DIR,
+                            stdout=open(DIR / f"prestage_{slug(next_figure)}.log", "w"),
+                            stderr=subprocess.STDOUT
+                        )
                 if not wait_for_clip09():
                     log("ERROR esperando Katherine WAN")
                     sys.exit(1)
                 time.sleep(15)
-                # Ensamblar y pushear sin regenerar historia/imágenes
                 r = subprocess.run([PYTHON, "assemble_video.py", "--channel", CHANNEL],
                                    capture_output=True, text=True, cwd=DIR)
                 print(r.stdout)
@@ -326,7 +372,7 @@ def main():
                 continue
 
         wait_for_queue_space()
-        success = run_pipeline(figure)
+        success = run_pipeline(figure, next_figure=next_figure)
         if success:
             done_set.add(figure)
             state["done"] = list(done_set)
