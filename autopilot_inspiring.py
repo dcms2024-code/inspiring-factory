@@ -163,7 +163,7 @@ def count_clips() -> int:
 def n_scenes() -> int:
     try:
         cfg = json.loads((DIR / CHANNEL).read_text())
-        return len(cfg.get("scenes", []) or cfg.get("prompts", []))
+        return int(cfg.get("scenes_count", 9))
     except Exception:
         return 9
 
