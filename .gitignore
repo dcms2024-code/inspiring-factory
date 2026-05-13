@@ -22,3 +22,7 @@ renders/
 
 # Local workflow references copied from ComfyUI examples
 wanvideo_*_example*.json
+
+# Runtime state
+autopilot_state.json
+staging/

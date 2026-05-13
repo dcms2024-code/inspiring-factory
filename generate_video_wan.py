@@ -44,7 +44,9 @@ def wait_for_completion(ws_url: str, prompt_id: str, client_id: str) -> None:
             if data.get("node") is None and data.get("prompt_id") == prompt_id:
                 break
         elif msg.get("type") == "execution_error":
-            raise RuntimeError(f"ComfyUI error: {msg.get('data', {})}")
+            err_data = msg.get("data", {})
+            if err_data.get("prompt_id") == prompt_id:
+                raise RuntimeError(f"ComfyUI error: {err_data}")
     ws.close()
 
 
@@ -124,7 +126,7 @@ def build_i2v_workflow(
         },
         "3": {
             "class_type": "LoadWanVideoT5TextEncoder",
-            "inputs": {"model_name": text_encoder, "precision": "bf16", "load_device": "offload_device", "quantization": "disabled"},
+            "inputs": {"model_name": text_encoder, "precision": "bf16", "load_device": "main_device", "quantization": "fp8_e4m3fn"},
         },
         "4": {
             "class_type": "WanVideoTextEncode",
@@ -151,7 +153,7 @@ def build_i2v_workflow(
                 "pad_color": "0, 0, 0",
                 "crop_position": "center",
                 "divisible_by": 16,
-                "device": "gpu",
+                "device": "cpu",
             },
         },
         "8": {
