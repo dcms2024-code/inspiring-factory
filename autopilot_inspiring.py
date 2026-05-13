@@ -323,7 +323,7 @@ def copy_to_pi(local_path: Path, filename: str, title: str, description: str) ->
         "open(path,'w').write(json.dumps(meta,ensure_ascii=False,indent=2))\n"
         "print('meta.json OK')\n"
     )
-    subprocess.run(["ssh", PI, f"python3 -c {json.dumps(meta_code)}"], timeout=30)
+    subprocess.run(["ssh", PI, "python3"], input=meta_code.encode(), timeout=30)
     return True
 
 
