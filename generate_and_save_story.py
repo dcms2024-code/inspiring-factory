@@ -25,14 +25,27 @@ def build_prompt(channel: dict, figure_name: str, figure_hint: str | None) -> st
 
     if age_progression:
         age_rules = (
-            f"- STRICT AGE PROGRESSION: The figure's apparent age must NEVER decrease from one scene to the next. "
-            f"Each scene must show the figure at the same age or older than the previous scene. No flashbacks, no going back in time.\n"
-            f"- Age guide for {scenes_count} scenes: scenes 1-2 show childhood or youth, scenes 3-4 show young adult, "
-            f"scenes 5-6 show mature adult, scenes 7-8 show elderly, scene {scenes_count} shows very elderly or a legacy tribute "
-            f"(memorial, statue, modern impact).\n"
+            f"- STRICT AGE PROGRESSION: The figure must visually age from scene to scene. Never go backwards in age.\n"
+            f"- Age guide for {scenes_count} scenes: "
+            f"scene 1 (~8-12 years old, child face, no wrinkles), "
+            f"scene 2 (~16-20 years old, teenage/young adult), "
+            f"scene 3 (~25-30 years old, smooth skin, dark hair), "
+            f"scene 4 (~35-40 years old, slight lines, still dark hair), "
+            f"scene 5 (~45-52 years old, light gray temples, mature face), "
+            f"scene 6 (~55-62 years old, salt-and-pepper hair, visible wrinkles), "
+            f"scene 7 (~65-72 years old, gray or white hair, deep wrinkles, aged posture), "
+            f"scene 8 (~75-85 years old, white hair, elderly face, or symbolic tribute shot), "
+            f"scene {scenes_count} (legacy tribute: statue, memorial, or modern impact — no character age required).\n"
+            f"- MANDATORY in every visual_prompt where the character appears: include the APPROXIMATE AGE as a number "
+            f"AND at least one physical descriptor. Good examples: "
+            f"'10-year-old boy with smooth skin and dark hair', "
+            f"'28-year-old man with dark hair and sharp eyes', "
+            f"'55-year-old man with salt-and-pepper hair and slight wrinkles', "
+            f"'72-year-old woman with white hair, deep wrinkles, and a warm smile'. "
+            f"NEVER use just 'young', 'older', 'mature' or 'elderly' without an age number.\n"
             f"- FORBIDDEN in visual_prompts for scenes 5 and beyond: words like 'young', 'child', 'early career', "
-            f"'early life', 'as a student', 'early computer' — these imply ages already shown in earlier scenes.\n"
-            f"- Each scene must be set LATER in time than the previous scene. Never repeat a setting or period already shown."
+            f"'early life', 'as a student' — these imply ages already shown.\n"
+            f"- Each scene must be set LATER in time than the previous scene. Never repeat a setting already shown."
         )
     else:
         age_rules = (
