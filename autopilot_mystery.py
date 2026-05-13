@@ -17,7 +17,7 @@ STATE_FILE   = DIR / "autopilot_mystery_state.json"
 STAGING_DIR  = DIR / "staging_mystery"
 COMFYUI_URL  = "http://127.0.0.1:8188"
 COMFYUI_BIN  = "/home/andreu/ai-tools/ComfyUI/main.py"
-COMFYUI_VENV = "/home/andreu/ai-tools/ComfyUI/venv/bin/python"
+COMFYUI_VENV = "/home/andreu/miniconda3/envs/comfyui/bin/python"
 ARCHIVE_DIR  = DIR / "publicados/mystery"
 
 WAN_TIMEOUT_H   = 7
