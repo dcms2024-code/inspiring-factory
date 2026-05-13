@@ -1,25 +1,41 @@
 #!/usr/bin/env python3
 """
-Autopilot inspiring-factory: genera un personaje tras otro sin intervención manual.
+Autopilot inspiring-factory — versión robusta.
 Uso: nohup python3 autopilot_inspiring.py >> autopilot.log 2>&1 &
+
+Mejoras vs versión anterior:
+- WAN corre SÍNCRONAMENTE (subprocess.run, no Popen) — no más timeouts falsos
+- 3 reintentos WAN sin borrar clips existentes entre intentos
+- Limpieza DESPUÉS de archivar+copiar, nunca antes
+- rsync con verificación de tamaño en lugar de scp
+- Fallos saltan al siguiente personaje en vez de sys.exit(1)
+- Detección de ComfyUI caído + reinicio automático
+- Pre-staging corre en thread daemon paralelo a WAN síncrono
 """
 from __future__ import annotations
-import json, os, re, shutil, subprocess, sys, time
+import json, os, re, shutil, subprocess, sys, threading, time, urllib.request
 from pathlib import Path
 
-DIR = Path("/home/andreu/inspiring-factory")
-PYTHON = "/home/andreu/miniconda3/bin/python"
-PI = "andreu@192.168.1.60"
-QUEUE_DIR = "/home/andreu/youtube_bot/queue/inspiring-factory"
-CHANNEL = "config/channel_inspirational_science_es.json"
-STATE_FILE = DIR / "autopilot_state.json"
-STAGING_DIR = DIR / "staging"
+DIR          = Path("/home/andreu/inspiring-factory")
+PYTHON       = "/home/andreu/miniconda3/bin/python"
+PI           = "andreu@192.168.1.60"
+QUEUE_DIR    = "/home/andreu/youtube_bot/queue/inspiring-factory"
+CHANNEL      = "config/channel_inspirational_science_es.json"
+STATE_FILE   = DIR / "autopilot_state.json"
+STAGING_DIR  = DIR / "staging"
+COMFYUI_URL  = "http://127.0.0.1:8188"
+COMFYUI_BIN  = "/home/andreu/ai-tools/ComfyUI/main.py"
+COMFYUI_VENV = "/home/andreu/ai-tools/ComfyUI/venv/bin/python"
+
+WAN_TIMEOUT_H  = 7      # 9 clips × ~45min worst case = 6.75h
+WAN_MAX_RETRIES = 3
+QUEUE_MAX      = 5      # no generar si Pi tiene ≥5 videos en cola
 
 FIGURES = [
-    "Ada Lovelace",        # 1 ✓ publicada
-    "Alan Turing",         # 2 ✓ en cola Pi
-    "Grace Hopper",        # 3 ✓ en cola Pi
-    "Katherine Johnson",   # 4 ← en curso
+    "Ada Lovelace",
+    "Alan Turing",
+    "Grace Hopper",
+    "Katherine Johnson",
     "Margaret Hamilton",
     "Hedy Lamarr",
     "Tim Berners-Lee",
@@ -41,7 +57,7 @@ FIGURES = [
     "Steve Wozniak",
     "Bill Gates",
     "Paul Allen",
-    "Nikola Tesla",        # 26 ✓ publicado
+    "Nikola Tesla",
     "Thomas Edison",
     "Alexander Graham Bell",
     "Guglielmo Marconi",
@@ -117,73 +133,247 @@ FIGURES = [
     "Boyan Slat",
 ]
 
-DONE = {"Nikola Tesla", "Ada Lovelace", "Alan Turing", "Grace Hopper"}
 
-QUEUE_MIN = 3
-QUEUE_MAX = 5
+# ── helpers ────────────────────────────────────────────────────────────────────
 
+def log(msg: str):
+    ts = time.strftime("%H:%M:%S")
+    print(f"[{ts}] [autopilot] {msg}", flush=True)
 
-def log(msg):
-    print(f"[autopilot] {msg}", flush=True)
+def slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
+def load_state() -> dict:
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except Exception:
+            pass
+    return {"done": [], "current": None}
 
-def queue_size():
+def save_state(state: dict):
+    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+
+def clips_dir() -> Path:
+    return DIR / "video/clips"
+
+def count_clips() -> int:
+    return len(list(clips_dir().glob("clip_*.mp4")))
+
+def n_scenes() -> int:
+    try:
+        cfg = json.loads((DIR / CHANNEL).read_text())
+        return len(cfg.get("scenes", []) or cfg.get("prompts", []))
+    except Exception:
+        return 9
+
+def queue_size() -> int:
     r = subprocess.run(
         ["ssh", PI, f"ls {QUEUE_DIR}/*.mp4 2>/dev/null | wc -l"],
-        capture_output=True, text=True
+        capture_output=True, text=True, timeout=15
     )
     try:
         return int(r.stdout.strip())
-    except:
+    except Exception:
         return 0
-
 
 def wait_for_queue_space():
     while True:
-        n = queue_size()
+        try:
+            n = queue_size()
+        except Exception:
+            n = 0
         if n < QUEUE_MAX:
-            log(f"Cola Pi: {n} videos — generando siguiente")
+            log(f"Cola Pi: {n} videos — OK para generar")
             return
-        log(f"Cola Pi llena ({n}/{QUEUE_MAX}) — esperando que baje a {QUEUE_MIN}...")
-        time.sleep(3600)
+        log(f"Cola Pi llena ({n}/{QUEUE_MAX}) — esperando...")
+        time.sleep(1800)
 
 
-def load_state():
-    if STATE_FILE.exists():
-        return json.loads(STATE_FILE.read_text())
-    return {"done": list(DONE), "current": None}
+# ── ComfyUI ───────────────────────────────────────────────────────────────────
 
+_comfyui_proc = None
 
-def save_state(state):
-    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+def comfyui_running() -> bool:
+    try:
+        urllib.request.urlopen(f"{COMFYUI_URL}/system_stats", timeout=5)
+        return True
+    except Exception:
+        return False
 
+def ensure_comfyui():
+    global _comfyui_proc
+    if comfyui_running():
+        return
+    log("ComfyUI no responde — arrancando...")
+    python_bin = COMFYUI_VENV if Path(COMFYUI_VENV).exists() else PYTHON
+    _comfyui_proc = subprocess.Popen(
+        [python_bin, COMFYUI_BIN, "--listen", "0.0.0.0", "--port", "8188",
+         "--disable-auto-launch"],
+        stdout=open("/tmp/comfyui.log", "a"),
+        stderr=subprocess.STDOUT,
+    )
+    for _ in range(60):
+        time.sleep(5)
+        if comfyui_running():
+            log("ComfyUI listo")
+            return
+    raise RuntimeError("ComfyUI no arrancó en 5 minutos")
 
-def slug(name):
-    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-
-
-def wait_for_clip09(timeout_hours=5):
-    clip = DIR / "video/clips/clip_09.mp4"
-    log("Esperando clip_09.mp4...")
-    deadline = time.time() + timeout_hours * 3600
-    while time.time() < deadline:
-        if clip.exists() and clip.stat().st_size > 100_000:
-            log(f"clip_09 listo ({clip.stat().st_size // 1024} KB)")
-            return True
+def free_vram():
+    try:
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/free",
+            data=b'{"unload_models":true,"free_memory":true}',
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=10)
+        log("VRAM liberada")
         time.sleep(60)
+    except Exception as e:
+        log(f"ComfyUI /free: {e}")
+
+
+# ── WAN (síncrono con reintentos) ─────────────────────────────────────────────
+
+def run_wan_with_retry(figure: str) -> bool:
+    wan_log_path = DIR / f"{slug(figure)}.log"
+    expected = n_scenes()
+
+    for attempt in range(1, WAN_MAX_RETRIES + 1):
+        existing = count_clips()
+        log(f"WAN intento {attempt}/{WAN_MAX_RETRIES} — clips: {existing}/{expected}")
+
+        if existing >= expected:
+            log("Todos los clips ya existen — skip WAN")
+            return True
+
+        ensure_comfyui()
+        free_vram()
+
+        try:
+            with open(wan_log_path, "a") as wl:
+                r = subprocess.run(
+                    [PYTHON, "generate_video_wan.py", "--channel", CHANNEL],
+                    stdout=wl, stderr=wl,
+                    timeout=WAN_TIMEOUT_H * 3600,
+                    cwd=DIR,
+                )
+        except subprocess.TimeoutExpired:
+            log(f"WAN timeout ({WAN_TIMEOUT_H}h) en intento {attempt}")
+            r = None
+
+        done = count_clips()
+        log(f"WAN intento {attempt} terminó — clips: {done}/{expected}")
+
+        if done >= expected:
+            return True
+
+        if attempt < WAN_MAX_RETRIES:
+            log(f"WAN incompleto — reintentando en 60s (clips actuales: {done})")
+            time.sleep(60)
+
     return False
 
 
-def run_pipeline(figure, next_figure=None):
+# ── Copia a Pi (rsync + verificación) ────────────────────────────────────────
+
+def copy_to_pi(local_path: Path, filename: str, title: str, description: str) -> bool:
+    local_size = local_path.stat().st_size
+    remote = f"{PI}:{QUEUE_DIR}/{filename}"
+
+    for attempt in range(1, 4):
+        log(f"rsync a Pi intento {attempt}/3 — {filename}")
+        r = subprocess.run(
+            ["rsync", "-avP", "--inplace", str(local_path), remote],
+            timeout=600,
+        )
+        if r.returncode != 0:
+            log(f"rsync falló (rc={r.returncode})")
+            time.sleep(30)
+            continue
+
+        # Verificar tamaño remoto
+        check = subprocess.run(
+            ["ssh", PI, f"stat -c%s {QUEUE_DIR}/{filename}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        try:
+            remote_size = int(check.stdout.strip())
+        except Exception:
+            remote_size = 0
+
+        if remote_size >= local_size * 0.99:
+            log(f"Copia OK ({remote_size // 1024 // 1024} MB en Pi)")
+            break
+        log(f"Tamaño remoto incorrecto ({remote_size} vs {local_size}) — reintentando")
+        time.sleep(30)
+    else:
+        log(f"ERROR: no se pudo copiar {filename} a Pi tras 3 intentos")
+        return False
+
+    # Actualizar meta.json en Pi
+    meta_code = (
+        "import json\n"
+        f"path='{QUEUE_DIR}/meta.json'\n"
+        "try:\n    meta=json.load(open(path))\nexcept:\n    meta={}\n"
+        f"meta[{json.dumps(filename)}]={{'title':{json.dumps(title)},"
+        f"'description':{json.dumps(description)}}}\n"
+        "open(path,'w').write(json.dumps(meta,ensure_ascii=False,indent=2))\n"
+        "print('meta.json OK')\n"
+    )
+    subprocess.run(["ssh", PI, f"python3 -c {json.dumps(meta_code)}"], timeout=30)
+    return True
+
+
+# ── Pre-staging (paralelo a WAN) ──────────────────────────────────────────────
+
+def launch_prestage(next_figure: str):
+    next_staging = STAGING_DIR / slug(next_figure)
+    if (next_staging / "story.json").exists() and (next_staging / "narration.mp3").exists():
+        log(f"Staging de '{next_figure}' ya existe — skip prestage")
+        return
+
+    log(f"Prestage de '{next_figure}' en background...")
+
+    def _run():
+        r = subprocess.run(
+            [PYTHON, "prestage.py", "--figure", next_figure, "--channel", CHANNEL],
+            cwd=DIR,
+            stdout=open(DIR / f"prestage_{slug(next_figure)}.log", "w"),
+            stderr=subprocess.STDOUT,
+            timeout=600,
+        )
+        log(f"Prestage '{next_figure}' terminó (rc={r.returncode})")
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+
+# ── Pipeline de un personaje ───────────────────────────────────────────────────
+
+def run_figure(figure: str, next_figure: str | None) -> bool:
     log(f"=== Iniciando: {figure} ===")
     os.chdir(DIR)
 
-    # Limpiar
-    for pattern in ["images/generated/*.png", "video/clips/*.mp4",
-                     "audio/*", "output/final_short.mp4"]:
-        subprocess.run(f"rm -f {DIR}/{pattern}", shell=True)
+    state_file = STATE_FILE
+    state = load_state()
+    state["current"] = figure
+    save_state(state)
 
-    # Usar staging si está disponible (historia + voz pre-generadas)
+    clips_count = count_clips()
+    images = list((DIR / "images/generated").glob("*.png"))
+    has_story = (DIR / "stories/story.json").exists()
+
+    # Solo limpiar si estamos desde cero (no hay clips ni imágenes)
+    if clips_count == 0 and not images:
+        log("Limpiando artefactos de sesión anterior...")
+        for p in ["audio/narration.mp3", "audio/subtitles.srt",
+                  "output/final_short.mp4", "stories/story.json"]:
+            (DIR / p).unlink(missing_ok=True)
+
+    # Usar staging si está listo
     staging = STAGING_DIR / slug(figure)
     staged_story = staging / "story.json"
     staged_narration = staging / "narration.mp3"
@@ -192,196 +382,140 @@ def run_pipeline(figure, next_figure=None):
 
     if use_staging:
         log(f"Usando staging para historia+voz de {figure}")
-        os.makedirs(DIR / "stories", exist_ok=True)
-        os.makedirs(DIR / "audio", exist_ok=True)
+        (DIR / "stories").mkdir(exist_ok=True)
+        (DIR / "audio").mkdir(exist_ok=True)
         shutil.copy2(staged_story, DIR / "stories/story.json")
         shutil.copy2(staged_narration, DIR / "audio/narration.mp3")
         if staged_srt.exists():
             shutil.copy2(staged_srt, DIR / "audio/subtitles.srt")
-        scripts_to_run = ["auto_generate_images.py"]
-    else:
-        # Ollama solo necesario si vamos a generar historia
+    elif not has_story:
+        # Generar historia + voz
         subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
         time.sleep(3)
         subprocess.Popen(["ollama", "serve"],
                          stdout=open("/tmp/ollama.log", "w"), stderr=subprocess.STDOUT)
         time.sleep(8)
-        scripts_to_run = ["generate_and_save_story.py", "generate_voice.py", "auto_generate_images.py"]
-
-    for script in scripts_to_run:
-        r = subprocess.run([PYTHON, script, "--channel", CHANNEL,
-                            "--figure", figure] if script == "generate_and_save_story.py"
-                           else [PYTHON, script, "--channel", CHANNEL],
-                           capture_output=True, text=True)
-        print(r.stdout)
-        if r.returncode != 0:
-            log(f"ERROR en {script}: {r.stderr}")
-            return False
-
-    # Liberar VRAM antes de WAN
-    try:
-        import urllib.request as _ur
-        _ur.urlopen(_ur.Request(
-            "http://127.0.0.1:8188/free",
-            data=b'{"unload_models":true,"free_memory":true}',
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        ), timeout=10)
-        log('ComfyUI: VRAM liberada')
-        time.sleep(60)
-    except Exception as _e:
-        log(f'ComfyUI /free: {_e}')
-
-    # WAN (background)
-    log('Lanzando WAN...')
-    wan_log = open(DIR / f"{slug(figure)}.log", "a")
-    subprocess.Popen([PYTHON, "generate_video_wan.py", "--channel", CHANNEL],
-                     stdout=wan_log, stderr=wan_log)
-
-    # Pre-generar historia+voz del siguiente personaje mientras WAN corre
-    if next_figure:
-        next_staging = STAGING_DIR / slug(next_figure)
-        if not (next_staging / "story.json").exists():
-            log(f"Iniciando pre-generación de '{next_figure}' en background...")
-            subprocess.Popen(
-                [PYTHON, "prestage.py", "--figure", next_figure, "--channel", CHANNEL],
-                cwd=DIR,
-                stdout=open(DIR / f"prestage_{slug(next_figure)}.log", "w"),
-                stderr=subprocess.STDOUT
+        for script, extra_args in [
+            ("generate_and_save_story.py", ["--figure", figure]),
+            ("generate_voice.py", []),
+        ]:
+            r = subprocess.run(
+                [PYTHON, script, "--channel", CHANNEL] + extra_args,
+                capture_output=True, text=True, cwd=DIR,
             )
+            if r.returncode != 0:
+                log(f"ERROR en {script}:\n{r.stderr[-2000:]}")
+                return False
+            print(r.stdout[-1000:])
 
-    # Esperar clip_09
-    if not wait_for_clip09():
-        log("TIMEOUT en WAN")
+    # Generar imágenes (ComfyUI SDXL) — skip si ya existen
+    if not images:
+        ensure_comfyui()
+        r = subprocess.run(
+            [PYTHON, "auto_generate_images.py", "--channel", CHANNEL],
+            capture_output=True, text=True, cwd=DIR, timeout=1800,
+        )
+        if r.returncode != 0:
+            log(f"ERROR en auto_generate_images:\n{r.stderr[-2000:]}")
+            return False
+        print(r.stdout[-500:])
+    else:
+        log(f"{len(images)} imágenes ya existen — skip SDXL")
+
+    # Pre-staging del siguiente personaje arranca aquí (paralelo a WAN)
+    if next_figure:
+        launch_prestage(next_figure)
+
+    # WAN síncrono con reintentos
+    if not run_wan_with_retry(figure):
+        log(f"WAN falló tras {WAN_MAX_RETRIES} intentos — saltando a siguiente")
         return False
 
     time.sleep(15)
 
     # Ensamblar
-    log("Ensamblando...")
-    r = subprocess.run([PYTHON, "assemble_video.py", "--channel", CHANNEL],
-                       capture_output=True, text=True)
-    print(r.stdout)
+    log("Ensamblando vídeo final...")
+    r = subprocess.run(
+        [PYTHON, "assemble_video.py", "--channel", CHANNEL],
+        capture_output=True, text=True, cwd=DIR, timeout=600,
+    )
     if r.returncode != 0:
-        log(f"ERROR assemble: {r.stderr}")
+        log(f"ERROR assemble:\n{r.stderr[-2000:]}")
+        return False
+    print(r.stdout[-500:])
+
+    final_mp4 = DIR / "output/final_short.mp4"
+    if not final_mp4.exists() or final_mp4.stat().st_size < 1_000_000:
+        log("ERROR: final_short.mp4 no existe o es demasiado pequeño")
         return False
 
-    # Archivar en 3090
+    # Archivar en local
     filename = slug(figure) + "_inspiring.mp4"
     archive = DIR / "publicados"
     archive.mkdir(exist_ok=True)
-    shutil.copy2("output/final_short.mp4", archive / filename)
+    archived = archive / filename
+    shutil.copy2(final_mp4, archived)
     log(f"Archivado: publicados/{filename}")
 
-    # Copiar a Pi
-    story = json.load(open("stories/story.json"))
-    title = story.get("title", figure)
-    hook = story.get("hook", "")
-    ending = story.get("ending", "")
+    # Título y descripción
+    try:
+        story = json.loads((DIR / "stories/story.json").read_text())
+        title = story.get("title", figure)
+        hook = story.get("hook", "")
+        ending = story.get("ending", "")
+    except Exception:
+        title = figure
+        hook = ""
+        ending = ""
     description = f"{hook}\n\n{ending}\n\n#shorts #historia #ciencia #inspiracion"
 
-    log(f"Copiando {filename} a Pi...")
-    r = subprocess.run(["scp", "output/final_short.mp4", f"{PI}:{QUEUE_DIR}/{filename}"])
-    if r.returncode != 0:
-        log("ERROR copiando a Pi")
+    # Copiar a Pi (rsync + verificación)
+    if not copy_to_pi(final_mp4, filename, title, description):
         return False
 
-    meta_update = (
-        f"import json\n"
-        f"path='{QUEUE_DIR}/meta.json'\n"
-        f"try:\n    meta=json.load(open(path))\nexcept:\n    meta={{}}\n"
-        f"meta[{json.dumps(filename)}]={{'title':{json.dumps(title)},"
-        f"'description':{json.dumps(description)}}}\n"
-        f"open(path,'w').write(json.dumps(meta,ensure_ascii=False,indent=2))\n"
-        f"print('meta.json OK')\n"
-    )
-    subprocess.run(["ssh", PI, f"python3 -c {json.dumps(meta_update)}"])
-    log(f"OK: {filename} en cola Pi")
+    # Limpiar clips e imágenes SOLO si copia fue OK
+    log("Limpiando clips e imágenes (copia verificada)...")
+    subprocess.run(f"rm -f {DIR}/video/clips/*.mp4 {DIR}/images/generated/*.png", shell=True)
+    if use_staging and staging.exists():
+        shutil.rmtree(staging, ignore_errors=True)
+
+    log(f"=== {figure} completado ===")
     return True
 
 
+# ── main ──────────────────────────────────────────────────────────────────────
+
 def main():
+    log("Autopilot arrancando")
     state = load_state()
     done_set = set(state.get("done", []))
 
-    # Build list of pending figures for next_figure lookup
-    pending = [f for f in FIGURES if f not in done_set]
-
     for i, figure in enumerate(FIGURES):
         if figure in done_set:
-            log(f"Saltando (ya hecho): {figure}")
             continue
 
-        # Compute next pending figure for pre-staging
-        remaining = [f for f in FIGURES[FIGURES.index(figure)+1:] if f not in done_set]
-        next_figure = remaining[0] if remaining else None
-
-        # Si Katherine Johnson ya tiene imágenes/clips, continuar desde donde está
-        if figure == "Katherine Johnson":
-            clip09 = DIR / "video/clips/clip_09.mp4"
-            clips_exist = list((DIR / "video/clips").glob("clip_*.mp4"))
-            images_exist = list((DIR / "images/generated").glob("*.png"))
-            if images_exist and not clips_exist:
-                log("Katherine Johnson: imágenes listas, lanzando WAN...")
-                wan_log = open(DIR / "katherine_johnson.log", "a")
-                subprocess.Popen([PYTHON, "generate_video_wan.py", "--channel", CHANNEL],
-                                 stdout=wan_log, stderr=wan_log)
-            if (clips_exist or images_exist) and not clip09.exists():
-                log("Katherine Johnson WAN en curso — esperando clip_09...")
-                if next_figure:
-                    next_staging = STAGING_DIR / slug(next_figure)
-                    if not (next_staging / "story.json").exists():
-                        log(f"Pre-generando '{next_figure}' en background...")
-                        subprocess.Popen(
-                            [PYTHON, "prestage.py", "--figure", next_figure, "--channel", CHANNEL],
-                            cwd=DIR,
-                            stdout=open(DIR / f"prestage_{slug(next_figure)}.log", "w"),
-                            stderr=subprocess.STDOUT
-                        )
-                if not wait_for_clip09():
-                    log("ERROR esperando Katherine WAN")
-                    sys.exit(1)
-                time.sleep(15)
-                r = subprocess.run([PYTHON, "assemble_video.py", "--channel", CHANNEL],
-                                   capture_output=True, text=True, cwd=DIR)
-                print(r.stdout)
-                filename = slug(figure) + "_inspiring.mp4"
-                archive = DIR / "publicados"
-                archive.mkdir(exist_ok=True)
-                shutil.copy2(DIR / "output/final_short.mp4", archive / filename)
-                story = json.load(open(DIR / "stories/story.json"))
-                title = story.get("title", figure)
-                hook = story.get("hook", "")
-                ending = story.get("ending", "")
-                description = f"{hook}\n\n{ending}\n\n#shorts #historia #ciencia #inspiracion"
-                subprocess.run(["scp", str(DIR / "output/final_short.mp4"),
-                                f"{PI}:{QUEUE_DIR}/{filename}"])
-                meta_update = (
-                    f"import json\npath='{QUEUE_DIR}/meta.json'\n"
-                    f"try:\n    meta=json.load(open(path))\nexcept:\n    meta={{}}\n"
-                    f"meta[{json.dumps(filename)}]={{'title':{json.dumps(title)},"
-                    f"'description':{json.dumps(description)}}}\n"
-                    f"open(path,'w').write(json.dumps(meta,ensure_ascii=False,indent=2))\n"
-                    f"print('meta.json OK')\n"
-                )
-                subprocess.run(["ssh", PI, f"python3 -c {json.dumps(meta_update)}"])
-                log(f"OK: {filename} en cola Pi")
-                done_set.add(figure)
-                state["done"] = list(done_set)
-                save_state(state)
-                continue
+        remaining_after = [f for f in FIGURES[i+1:] if f not in done_set]
+        next_figure = remaining_after[0] if remaining_after else None
 
         wait_for_queue_space()
-        success = run_pipeline(figure, next_figure=next_figure)
+
+        success = run_figure(figure, next_figure)
+
+        state = load_state()
+        done_set = set(state.get("done", []))
+
         if success:
             done_set.add(figure)
             state["done"] = list(done_set)
+            state["current"] = None
             save_state(state)
-            log(f"=== {figure} completado. Pausa 60s antes del siguiente ===")
+            log(f"Estado guardado. Pausa 60s antes del siguiente.")
             time.sleep(60)
         else:
-            log(f"ERROR con {figure} — deteniendo autopilot")
-            sys.exit(1)
+            log(f"FALLO en '{figure}' — guardando estado y saltando al siguiente")
+            state["current"] = None
+            save_state(state)
+            time.sleep(30)
 
     log("=== Todos los personajes completados ===")
 
