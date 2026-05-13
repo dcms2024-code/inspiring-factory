@@ -1,0 +1,86 @@
+{
+  "channel_name": "Misterios al Dia",
+  "age_progression": false,
+  "story_type": "mysterious and suspenseful",
+  "cta": {
+    "enabled": false,
+    "lines": [],
+    "show_last_seconds": 6,
+    "fade_in_seconds": 1.5
+  },
+  "language": "es",
+  "tone": "misterioso, oscuro, inquietante, cinematografico, narrado en primera persona del espectador",
+  "duration_seconds_target": 60,
+  "scenes_count": 9,
+  "content_focus": [
+    "misterios historicos sin resolver",
+    "personajes enigmaticos de la historia",
+    "sucesos inexplicables documentados"
+  ],
+  "voice": {
+    "provider": "edge_tts",
+    "name": "es-ES-AlvaroNeural",
+    "rate": "-12%",
+    "volume": "+0%",
+    "pitch": "-12Hz",
+    "postprocess_filter": "rubberband=pitch=0.83:formant=preserved,loudnorm=I=-16:LRA=11:TP=-1.5",
+    "output_path": "audio/narration.mp3"
+  },
+  "subtitles": {
+    "font_name": "DejaVu Sans",
+    "font_size": 8,
+    "outline": 1,
+    "shadow": 1,
+    "alignment": 2,
+    "margin_v": 28,
+    "position": "bottom"
+  },
+  "story_rules": [
+    "Escribe en espanol.",
+    "Usa un tono oscuro, misterioso e inquietante. Cada frase debe generar intriga.",
+    "Empieza con un gancho potente en la primera frase que atrape al espectador.",
+    "Usa frases cortas y visuales. Una idea por frase. Maximo 12 palabras por frase.",
+    "No resuelvas el misterio. Termina con la incognita abierta o con una pregunta perturbadora.",
+    "La ultima frase debe ser siempre exactamente: 'Si te gustan los misterios, dale like, suscribete y descubriremos uno nuevo cada dia.'",
+    "Evita explicaciones cientificas largas. Prioriza la atmosfera y el suspense.",
+    "No uses expresiones genericas como 'un misterio sin resolver' o 'nadie sabe'. Se especifico y visual.",
+    "Los visual_prompts deben ser en ingles, oscuros, con iluminacion dramatica, estilo noir o periodo historico real."
+  ],
+  "image": {
+    "comfy_url": "http://127.0.0.1:8188",
+    "checkpoint": "juggernaut.safetensors",
+    "width": 768,
+    "height": 1344,
+    "steps": 32,
+    "cfg": 7.0,
+    "prompt_suffix": "dark cinematic noir style, dramatic chiaroscuro lighting, deep shadows, mysterious atmosphere, historical setting, vertical portrait framing, fog or smoke, high contrast, ominous mood, no text, no watermark",
+    "negative_prompt": "low quality, blurry, bad anatomy, distorted hands, extra fingers, deformed face, watermark, logo, text, bright colors, cheerful, modern smartphone, oversaturated, two heads, duplicate head, duplicate face, cloned face, multiple people"
+  },
+  "video": {
+    "use_wan_i2v": true,
+    "comfy_url": "http://127.0.0.1:8188",
+    "comfy_input_dir": "/home/andreu/ai-tools/ComfyUI/input",
+    "diffusion_model": "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+    "text_encoder": "umt5-xxl-enc-bf16.safetensors",
+    "vae_model": "Wan2_1_VAE_bf16.safetensors",
+    "use_clip_vision": false,
+    "clip_vision": "open-clip-vit-huge_fp16.safetensors",
+    "base_precision": "fp16",
+    "quantization": "fp8_e4m3fn_scaled",
+    "blocks_to_swap": 30,
+    "width": 480,
+    "height": 832,
+    "fps": 24,
+    "output_fps": 30,
+    "frames": 145,
+    "steps": 12,
+    "cfg": 5.0,
+    "negative_prompt": "low quality, blurry, static image, frozen frame, violent motion, morphing face, extra person, duplicate head, warped eyes, watermark, text"
+  },
+  "hardware_profile": {
+    "target_machine": "Ubuntu RTX 3090 despacho",
+    "host": "192.168.1.66",
+    "ssh_user": "andreu",
+    "recommended": true
+  }
+}

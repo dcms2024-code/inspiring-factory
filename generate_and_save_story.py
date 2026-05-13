@@ -18,12 +18,32 @@ def build_prompt(channel: dict, figure_name: str, figure_hint: str | None) -> st
     language = channel.get("language", "en")
     tone = channel.get("tone", "inspiring")
     seconds = int(channel.get("duration_seconds_target", 50))
+    story_type = channel.get("story_type", "inspirational")
+    age_progression = channel.get("age_progression", True)
 
     hint_line = f"\nExtra context: {figure_hint}\n" if figure_hint else ""
 
-    # Keep the schema compatible with the existing pipeline style (5 scenes).
+    if age_progression:
+        age_rules = (
+            f"- STRICT AGE PROGRESSION: The figure's apparent age must NEVER decrease from one scene to the next. "
+            f"Each scene must show the figure at the same age or older than the previous scene. No flashbacks, no going back in time.\n"
+            f"- Age guide for {scenes_count} scenes: scenes 1-2 show childhood or youth, scenes 3-4 show young adult, "
+            f"scenes 5-6 show mature adult, scenes 7-8 show elderly, scene {scenes_count} shows very elderly or a legacy tribute "
+            f"(memorial, statue, modern impact).\n"
+            f"- FORBIDDEN in visual_prompts for scenes 5 and beyond: words like 'young', 'child', 'early career', "
+            f"'early life', 'as a student', 'early computer' — these imply ages already shown in earlier scenes.\n"
+            f"- Each scene must be set LATER in time than the previous scene. Never repeat a setting or period already shown."
+        )
+    else:
+        age_rules = (
+            f"- Do NOT apply age progression. Each scene should focus on atmosphere, setting, and mood "
+            f"relevant to the topic. Scenes can jump between different moments, places, or perspectives freely.\n"
+            f"- Show the subject (person or place) at the most relevant or iconic visual moment.\n"
+            f"- Each scene must show a DIFFERENT visual moment, location, or angle to keep variety."
+        )
+
     return f"""
-Write an inspirational short story for a YouTube Short about the historical figure: {figure_name}.
+Write a {story_type} short story for a YouTube Short about: {figure_name}.
 Target duration: about {seconds} seconds.
 Language: {language}.
 Tone: {tone}.
@@ -35,10 +55,7 @@ Rules:
 - No extra keys beyond the schema.
 - Create exactly {scenes_count} scenes.
 - Each scene's visual_prompt must be in English and suitable for image generation.
-- STRICT AGE PROGRESSION: The figure's apparent age must NEVER decrease from one scene to the next. Each scene must show the figure at the same age or older than the previous scene. No flashbacks, no going back in time.
-- Age guide for {scenes_count} scenes: scenes 1-2 show childhood or youth, scenes 3-4 show young adult, scenes 5-6 show mature adult, scenes 7-8 show elderly, scene {scenes_count} shows very elderly or a legacy tribute (memorial, statue, modern impact).
-- FORBIDDEN in visual_prompts for scenes 5 and beyond: words like 'young', 'child', 'early career', 'early life', 'as a student', 'early computer' — these imply ages already shown in earlier scenes.
-- Each scene must be set LATER in time than the previous scene. Never repeat a setting or period already shown.
+{age_rules}
 
 Exact JSON schema:
 {{
