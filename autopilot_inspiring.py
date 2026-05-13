@@ -25,7 +25,7 @@ STATE_FILE   = DIR / "autopilot_state.json"
 STAGING_DIR  = DIR / "staging"
 COMFYUI_URL  = "http://127.0.0.1:8188"
 COMFYUI_BIN  = "/home/andreu/ai-tools/ComfyUI/main.py"
-COMFYUI_VENV = "/home/andreu/ai-tools/ComfyUI/venv/bin/python"
+COMFYUI_VENV = "/home/andreu/miniconda3/envs/comfyui/bin/python"
 
 WAN_TIMEOUT_H  = 7      # 9 clips × ~45min worst case = 6.75h
 WAN_MAX_RETRIES = 3
