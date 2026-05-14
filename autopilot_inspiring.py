@@ -499,6 +499,10 @@ def main():
 
         wait_for_queue_space()
 
+        if (DIR / "STOP").exists():
+            log("Fichero STOP detectado — saliendo limpiamente.")
+            break
+
         success = run_figure(figure, next_figure)
 
         state = load_state()
