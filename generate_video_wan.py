@@ -70,10 +70,10 @@ def download_video(comfy_url: str, filename: str, subfolder: str, folder_type: s
 
 
 
-def free_comfy_memory(comfy_url: str) -> None:
+def free_comfy_memory(comfy_url: str, unload_models: bool = False) -> None:
     try:
         import json as _j, urllib.request as _ur
-        data = _j.dumps({'unload_models': False, 'free_memory': True}).encode()
+        data = _j.dumps({'unload_models': unload_models, 'free_memory': True}).encode()
         req = _ur.Request(
             f'{comfy_url}/free', data=data,
             headers={'Content-Type': 'application/json'}, method='POST'
@@ -339,16 +339,21 @@ def main() -> int:
 
         result = queue_prompt(comfy_url, workflow, client_id)
         prompt_id = result["prompt_id"]
-        wait_for_completion(ws_url, prompt_id, client_id)
+        success = False
+        try:
+            wait_for_completion(ws_url, prompt_id, client_id)
 
-        videos = get_output_videos(comfy_url, prompt_id)
-        if not videos:
-            raise RuntimeError(f"No video output found for scene {scene_num}")
+            videos = get_output_videos(comfy_url, prompt_id)
+            if not videos:
+                raise RuntimeError(f"No video output found for scene {scene_num}")
 
-        v = videos[0]
-        download_video(comfy_url, v["filename"], v.get("subfolder", ""), v.get("type", "output"), out_path)
-        print(f"  Scene {scene_num:02d}: saved {out_path}")
-        free_comfy_memory(comfy_url)
+            v = videos[0]
+            download_video(comfy_url, v["filename"], v.get("subfolder", ""), v.get("type", "output"), out_path)
+            print(f"  Scene {scene_num:02d}: saved {out_path}")
+            success = True
+        finally:
+            # On failure: unload models fully to free VRAM+RAM for next retry
+            free_comfy_memory(comfy_url, unload_models=not success)
 
         time.sleep(0.2)
 

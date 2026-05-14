@@ -72,7 +72,7 @@
     "height": 832,
     "fps": 24,
     "output_fps": 30,
-    "frames": 145,
+    "frames": 97,
     "steps": 12,
     "cfg": 5.0,
     "negative_prompt": "low quality, blurry, static image, frozen frame, violent motion, morphing face, extra person, duplicate head, warped eyes, watermark, text"
