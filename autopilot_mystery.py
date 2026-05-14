@@ -509,6 +509,10 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
         if staged_srt.exists():
             shutil.copy2(staged_srt, DIR / "audio/subtitles.srt")
     elif not has_story:
+        if available_ram_mb() < 8000:
+            log("RAM baja — matando ComfyUI antes de Ollama...")
+            subprocess.run(["pkill", "-f", "ComfyUI/main.py"], capture_output=True)
+            time.sleep(5)
         subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
         time.sleep(3)
         subprocess.Popen(["ollama", "serve"],
