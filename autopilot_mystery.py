@@ -10,7 +10,7 @@ from pathlib import Path
 
 DIR          = Path("/home/andreu/inspiring-factory")
 PYTHON       = "/home/andreu/miniconda3/bin/python"
-PI           = "andreu@192.168.1.60"
+PI           = "andreu@100.106.161.14"
 QUEUE_DIR    = "/home/andreu/youtube_bot/queue/mystery"
 CHANNEL      = "config/channel_mystery_es.json"
 STATE_FILE   = DIR / "autopilot_mystery_state.json"
@@ -406,7 +406,9 @@ def copy_to_pi(local_path: Path, filename: str, title: str, description: str) ->
         "open(path,'w').write(json.dumps(meta,ensure_ascii=False,indent=2))\n"
         "print('meta.json OK')\n"
     )
-    subprocess.run(["ssh", PI, f"python3 -c {json.dumps(meta_code)}"], timeout=30)
+    import base64 as _b64
+    _enc = _b64.b64encode(meta_code.encode()).decode()
+    subprocess.run(["ssh", PI, f"echo {_enc} | base64 -d | python3"], timeout=30)
     return True
 
 
@@ -447,14 +449,19 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
     save_state(state)
 
     clips_count = count_clips()
-    images = list((DIR / "images/generated").glob("*.png"))
     has_story = (DIR / "stories/story.json").exists()
 
-    if clips_count == 0 and not images:
+    if clips_count == 0:
+        stale = list((DIR / "images/generated").glob("*.png"))
+        if stale:
+            log(f"Eliminando {len(stale)} imágenes residuales de sesión anterior")
+            for img in stale:
+                img.unlink()
         log("Limpiando artefactos de sesión anterior...")
         for p in ["audio/narration.mp3", "audio/subtitles.srt",
                   "output/final_short.mp4", "stories/story.json"]:
             (DIR / p).unlink(missing_ok=True)
+    images = list((DIR / "images/generated").glob("*.png"))
 
     # Staging
     staging = STAGING_DIR / slug(topic)

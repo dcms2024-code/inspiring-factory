@@ -69,6 +69,20 @@ def download_video(comfy_url: str, filename: str, subfolder: str, folder_type: s
             f.write(r.read())
 
 
+
+def free_comfy_memory(comfy_url: str) -> None:
+    try:
+        import json as _j, urllib.request as _ur
+        data = _j.dumps({'unload_models': False, 'free_memory': True}).encode()
+        req = _ur.Request(
+            f'{comfy_url}/free', data=data,
+            headers={'Content-Type': 'application/json'}, method='POST'
+        )
+        _ur.urlopen(req)
+    except Exception:
+        pass
+
+
 def prepare_comfy_input(image_path: str, scene_num: int, comfy_input_dir: str | None) -> str:
     if not comfy_input_dir:
         return os.path.abspath(image_path)
@@ -105,8 +119,8 @@ def build_i2v_workflow(
             "class_type": "WanVideoBlockSwap",
             "inputs": {
                 "blocks_to_swap": blocks_to_swap,
-                "offload_img_emb": False,
-                "offload_txt_emb": False,
+                "offload_img_emb": True,
+                "offload_txt_emb": True,
                 "use_non_blocking": True,
                 "vace_blocks_to_swap": 0,
                 "prefetch_blocks": 0,
@@ -334,6 +348,7 @@ def main() -> int:
         v = videos[0]
         download_video(comfy_url, v["filename"], v.get("subfolder", ""), v.get("type", "output"), out_path)
         print(f"  Scene {scene_num:02d}: saved {out_path}")
+        free_comfy_memory(comfy_url)
 
         time.sleep(0.2)
 
