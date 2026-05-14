@@ -85,8 +85,6 @@ def build_concat_file_for_videos(video_paths: list[str], out_path: str) -> None:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         for p in video_paths:
-            # ffmpeg concat demuxer interprets paths relative to the list file location.
-            # Keep entries simple (filenames or relative paths) to avoid platform quirks.
             f.write(f"file '{p}'\n")
 
 
@@ -127,8 +125,38 @@ def main() -> int:
         if not clips:
             raise FileNotFoundError("No WAN clips found in video/clips/. Disable use_wan_i2v or generate clips first.")
 
-        concat_list = "video/clips/concat.txt"
-        build_concat_file_for_videos([Path(p).name for p in clips], concat_list)
+        # Extend each clip via slow-motion to fill its share of audio — no looping
+        target_per_clip = duration / len(clips)
+        ext_dir = Path("video/extended")
+        if ext_dir.exists():
+            shutil.rmtree(ext_dir)
+        ext_dir.mkdir(parents=True)
+
+        extended_clips = []
+        for idx, clip_path in enumerate(clips):
+            ext_path = str(ext_dir / f"ext_{idx+1:02d}.mp4")
+            actual_dur = get_audio_duration(clip_path)
+            if actual_dur < target_per_clip - 0.1:
+                pts = target_per_clip / actual_dur
+                print(f"  Clip {idx+1}: {actual_dur:.2f}s → {target_per_clip:.2f}s (slow {pts:.2f}x)")
+                run_ffmpeg([
+                    "ffmpeg", "-y", "-i", clip_path,
+                    "-vf", f"setpts={pts:.4f}*PTS",
+                    "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-pix_fmt", "yuv420p", ext_path,
+                ])
+            else:
+                print(f"  Clip {idx+1}: {actual_dur:.2f}s → trim to {target_per_clip:.2f}s")
+                run_ffmpeg([
+                    "ffmpeg", "-y", "-i", clip_path,
+                    "-t", f"{target_per_clip:.3f}",
+                    "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-pix_fmt", "yuv420p", ext_path,
+                ])
+            extended_clips.append(ext_path)
+
+        concat_list = str(ext_dir / "concat.txt")
+        build_concat_file_for_videos([Path(p).name for p in extended_clips], concat_list)
 
         vf_parts = ["scale=1080:1920:force_original_aspect_ratio=increase", "crop=1080:1920"]
         output_fps = video_cfg.get("output_fps")
@@ -136,36 +164,17 @@ def main() -> int:
             vf_parts.append(f"fps={int(output_fps)}")
 
         cmd1 = [
-            "ffmpeg",
-            "-y",
-            "-stream_loop", "-1",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            concat_list,
-            "-i",
-            audio_path,
-            "-vf",
-            ",".join(vf_parts),
-            "-c:v",
-            "libx264",
-            "-preset",
-            "fast",
-            "-crf",
-            "23",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-pix_fmt",
-            "yuv420p",
-            "-t",
-            str(duration),
+            "ffmpeg", "-y",
+            "-f", "concat", "-safe", "0", "-i", concat_list,
+            "-i", audio_path,
+            "-vf", ",".join(vf_parts),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            "-shortest",
             tmp_video,
         ]
-        print(f"Rendering from clips: {len(clips)} clips, audio {duration:.1f}s")
+        print(f"Rendering {len(clips)} WAN clips @ {target_per_clip:.1f}s/clip (slow-motion), audio {duration:.1f}s")
         run_ffmpeg(cmd1)
     else:
         images = sorted([f for f in os.listdir("images/generated") if f.endswith(".png")])
@@ -189,7 +198,7 @@ def main() -> int:
                     continue
 
                 frames = max(1, int(round(per_scene * fps)))
-                zoom_delta = 0.10  # total zoom amount over the clip (1.0 -> 1.10)
+                zoom_delta = 0.10
                 z_expr = f"1+on/{frames}*{zoom_delta}"
                 vf = (
                     "scale=1080:1920:force_original_aspect_ratio=increase,"
@@ -198,23 +207,10 @@ def main() -> int:
                 )
 
                 cmd_slide = [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    f"images/generated/{img}",
-                    "-vf",
-                    vf,
-                    "-t",
-                    f"{per_scene:.2f}",
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "fast",
-                    "-crf",
-                    "23",
-                    "-pix_fmt",
-                    "yuv420p",
-                    slide_path,
+                    "ffmpeg", "-y", "-i", f"images/generated/{img}",
+                    "-vf", vf, "-t", f"{per_scene:.2f}",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-pix_fmt", "yuv420p", slide_path,
                 ]
                 run_ffmpeg(cmd_slide)
 
@@ -222,28 +218,12 @@ def main() -> int:
             build_concat_file_for_videos([Path(p).name for p in slide_paths], concat_list)
 
             cmd1 = [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                concat_list,
-                "-i",
-                audio_path,
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "23",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "192k",
-                "-pix_fmt",
-                "yuv420p",
+                "ffmpeg", "-y",
+                "-f", "concat", "-safe", "0", "-i", concat_list,
+                "-i", audio_path,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "192k",
+                "-pix_fmt", "yuv420p",
                 "-shortest",
                 tmp_video,
             ]
@@ -254,37 +234,20 @@ def main() -> int:
             build_concat_file_for_images([f"images/generated/{img}" for img in images], per_scene, list_file)
 
             cmd1 = [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                list_file,
-                "-i",
-                audio_path,
-                "-vf",
-                "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "23",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "192k",
-                "-pix_fmt",
-                "yuv420p",
+                "ffmpeg", "-y",
+                "-f", "concat", "-safe", "0", "-i", list_file,
+                "-i", audio_path,
+                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "192k",
+                "-pix_fmt", "yuv420p",
                 "-shortest",
                 tmp_video,
             ]
             print(f"Rendering slideshow: {len(images)} images, audio {duration:.1f}s ({per_scene:.1f}s/scene)")
             run_ffmpeg(cmd1)
 
-    # Burn subtitles (copy to a temp with safe permissions)
+    # Burn subtitles
     final_path = "output/final_short.mp4"
     subs_tmp = os.path.join("output", "subs_tmp.srt")
     shutil.copy(subs_src, subs_tmp)
@@ -296,24 +259,12 @@ def main() -> int:
     vf = ",".join(vf_parts)
     fade_start = max(0, duration - 2.0)
     cmd2 = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        tmp_video,
-        "-vf",
-        vf,
-        "-af",
-        f"afade=t=out:st={fade_start:.2f}:d=2.0",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-crf",
-        "23",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "192k",
+        "ffmpeg", "-y",
+        "-i", tmp_video,
+        "-vf", vf,
+        "-af", f"afade=t=out:st={fade_start:.2f}:d=2.0",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k",
         final_path,
     ]
 
