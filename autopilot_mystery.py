@@ -499,6 +499,7 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
     staged_narration = staging / "narration.mp3"
     staged_srt = staging / "subtitles.srt"
     use_staging = staged_story.exists() and staged_narration.exists()
+    use_staged_story = staged_story.exists() and not staged_narration.exists()
 
     if use_staging:
         log(f"Usando staging para {topic}")
@@ -508,6 +509,18 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
         shutil.copy2(staged_narration, DIR / "audio/narration.mp3")
         if staged_srt.exists():
             shutil.copy2(staged_srt, DIR / "audio/subtitles.srt")
+    elif use_staged_story:
+        log(f"Usando guion manual para {topic} — generando voz...")
+        (DIR / "stories").mkdir(exist_ok=True)
+        shutil.copy2(staged_story, DIR / "stories/story.json")
+        r = subprocess.run(
+            [PYTHON, "generate_voice.py", "--channel", CHANNEL],
+            capture_output=True, text=True, cwd=DIR,
+        )
+        if r.returncode != 0:
+            log(f"ERROR en generate_voice.py:\n{r.stderr[-2000:]}")
+            return False
+        print(r.stdout[-500:])
     elif not has_story:
         if available_ram_mb() < 20000:
             log("RAM baja — matando ComfyUI antes de Ollama...")
@@ -579,20 +592,22 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
     try:
         story = json.loads((DIR / "stories/story.json").read_text())
         title = story.get("title", topic)
-        hook = story.get("hook", "")
-        ending = story.get("ending", "")
+        if "youtube_description" in story:
+            description = story["youtube_description"]
+        else:
+            hook = story.get("hook", "")
+            ending = story.get("ending", "")
+            description = f"{hook}\n\n{ending}\n\n#shorts #misterio #historia #misteriosinresolver"
     except Exception:
         title = topic
-        hook = ""
-        ending = ""
-    description = f"{hook}\n\n{ending}\n\n#shorts #misterio #historia #misteriosinresolver"
+        description = "#shorts #misterio #historia #misteriosinresolver"
 
     if not copy_to_pi(final_mp4, filename, title, description):
         return False
 
     log("Limpiando clips e imágenes...")
     subprocess.run(f"rm -f {DIR}/video/clips/*.mp4 {DIR}/images/generated/*.png", shell=True)
-    if use_staging and staging.exists():
+    if (use_staging or use_staged_story) and staging.exists():
         shutil.rmtree(staging, ignore_errors=True)
 
     log(f"=== {topic} completado ===")
