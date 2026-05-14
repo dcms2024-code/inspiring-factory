@@ -325,6 +325,28 @@ def free_vram():
 
 # ── WAN síncrono con reintentos ───────────────────────────────────────────────
 
+def available_ram_mb() -> int:
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+    except Exception:
+        return 99999
+    return 99999
+
+def restart_comfyui():
+    global _comfyui_proc
+    log("RAM baja — reiniciando ComfyUI para limpiar memoria...")
+    subprocess.run(["pkill", "-f", "ComfyUI/main.py"], capture_output=True)
+    time.sleep(5)
+    for _ in range(12):
+        if not comfyui_running():
+            break
+        time.sleep(2)
+    _comfyui_proc = None
+    ensure_comfyui()
+
 def run_wan_with_retry(topic: str) -> bool:
     wan_log_path = DIR / f"mystery_{slug(topic)}.log"
     expected = n_scenes()
@@ -338,7 +360,10 @@ def run_wan_with_retry(topic: str) -> bool:
             return True
 
         ensure_comfyui()
-        free_vram()
+        if available_ram_mb() < 8000:
+            restart_comfyui()
+        else:
+            free_vram()
 
         try:
             with open(wan_log_path, "a") as wl:
