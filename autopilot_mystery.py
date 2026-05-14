@@ -548,6 +548,9 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
     if next_topic:
         launch_prestage(next_topic)
 
+    log("Matando ComfyUI antes de WAN (limpia VRAM/CUDA context)...")
+    subprocess.run(["pkill", "-f", "ComfyUI/main.py"], capture_output=True)
+    time.sleep(5)
     if not run_wan_with_retry(topic):
         log(f"WAN falló tras {WAN_MAX_RETRIES} intentos — saltando")
         return False
