@@ -23,6 +23,7 @@ ARCHIVE_DIR  = DIR / "publicados/mystery"
 WAN_TIMEOUT_H   = 7
 WAN_MAX_RETRIES = 3
 QUEUE_MAX       = 5
+_exit_when_full = False
 
 # ── Lista de contenido ─────────────────────────────────────────────────────────
 # Alternamos personajes misteriosos y misterios sin resolver para variedad
@@ -270,6 +271,9 @@ def wait_for_queue_space():
         if n < QUEUE_MAX:
             log(f"Cola Pi mystery: {n} videos — OK para generar")
             return
+        if _exit_when_full:
+            log(f"Cola Pi mystery llena ({n}/{QUEUE_MAX}) — saliendo (--exit-when-full)")
+            sys.exit(0)
         log(f"Cola Pi mystery llena ({n}/{QUEUE_MAX}) — esperando...")
         time.sleep(1800)
 
@@ -565,6 +569,11 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    global _exit_when_full
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--exit-when-full", action="store_true")
+    _exit_when_full = p.parse_args().exit_when_full
     log("Autopilot mystery arrancando")
     STAGING_DIR.mkdir(exist_ok=True)
 
