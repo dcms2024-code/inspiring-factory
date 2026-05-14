@@ -360,7 +360,7 @@ def run_wan_with_retry(topic: str) -> bool:
             return True
 
         ensure_comfyui()
-        if available_ram_mb() < 8000:
+        if available_ram_mb() < 20000:
             restart_comfyui()
         else:
             free_vram()
@@ -509,7 +509,7 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
         if staged_srt.exists():
             shutil.copy2(staged_srt, DIR / "audio/subtitles.srt")
     elif not has_story:
-        if available_ram_mb() < 8000:
+        if available_ram_mb() < 20000:
             log("RAM baja — matando ComfyUI antes de Ollama...")
             subprocess.run(["pkill", "-f", "ComfyUI/main.py"], capture_output=True)
             time.sleep(5)
