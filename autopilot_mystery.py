@@ -465,6 +465,7 @@ def run_topic(topic: str, next_topic: str | None) -> bool:
         for p in ["audio/narration.mp3", "audio/subtitles.srt",
                   "output/final_short.mp4", "stories/story.json"]:
             (DIR / p).unlink(missing_ok=True)
+        has_story = False
     images = list((DIR / "images/generated").glob("*.png"))
 
     # Staging
