@@ -44,7 +44,8 @@
     "No añadas ninguna frase de call-to-action ni de suscripcion al final. El CTA lo añade el sistema automaticamente.",
     "Evita explicaciones cientificas largas. Prioriza la atmosfera y el suspense.",
     "No uses expresiones genericas como 'un misterio sin resolver' o 'nadie sabe'. Se especifico y visual.",
-    "Los visual_prompts deben ser en ingles, oscuros, con iluminacion dramatica, estilo noir o periodo historico real."
+    "Los visual_prompts deben ser en ingles, oscuros, con iluminacion dramatica, estilo noir o periodo historico real.",
+    "Genera exactamente 9 escenas. Cada visual_prompt debe mostrar un lugar, momento o angulo DIFERENTE al resto. Prohibido repetir el mismo encuadre, localizacion o elemento visual entre escenas."
   ],
   "image": {
     "comfy_url": "http://127.0.0.1:8188",
