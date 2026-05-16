@@ -4,7 +4,7 @@
   "story_type": "mysterious and suspenseful",
   "cta": {
     "enabled": false,
-    "lines": [],
+    "lines": ["Si te gustan los misterios, dale like, suscribete y descubriremos uno nuevo cada dia."],
     "show_last_seconds": 6,
     "fade_in_seconds": 1.5
   },
@@ -41,7 +41,7 @@
     "Empieza con un gancho potente en la primera frase que atrape al espectador.",
     "Usa frases cortas y visuales. Una idea por frase. Maximo 12 palabras por frase.",
     "No resuelvas el misterio. Termina con la incognita abierta o con una pregunta perturbadora.",
-    "La ultima frase debe ser siempre exactamente: 'Si te gustan los misterios, dale like, suscribete y descubriremos uno nuevo cada dia.'",
+    "No añadas ninguna frase de call-to-action ni de suscripcion al final. El CTA lo añade el sistema automaticamente.",
     "Evita explicaciones cientificas largas. Prioriza la atmosfera y el suspense.",
     "No uses expresiones genericas como 'un misterio sin resolver' o 'nadie sabe'. Se especifico y visual.",
     "Los visual_prompts deben ser en ingles, oscuros, con iluminacion dramatica, estilo noir o periodo historico real."

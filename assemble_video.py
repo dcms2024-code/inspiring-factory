@@ -138,10 +138,10 @@ def main() -> int:
             actual_dur = get_audio_duration(clip_path)
             if actual_dur < target_per_clip - 0.1:
                 pts = target_per_clip / actual_dur
-                print(f"  Clip {idx+1}: {actual_dur:.2f}s → {target_per_clip:.2f}s (slow {pts:.2f}x)")
+                print(f"  Clip {idx+1}: {actual_dur:.2f}s → {target_per_clip:.2f}s (slow {pts:.2f}x, minterp)")
                 run_ffmpeg([
                     "ffmpeg", "-y", "-i", clip_path,
-                    "-vf", f"setpts={pts:.4f}*PTS",
+                    "-vf", f"setpts={pts:.4f}*PTS,minterp=fps=30:scd=none",
                     "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
                     "-pix_fmt", "yuv420p", ext_path,
                 ])
