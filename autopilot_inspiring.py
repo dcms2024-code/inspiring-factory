@@ -40,8 +40,6 @@ FIGURES = [
     "Hedy Lamarr",
     "Tim Berners-Lee",
     "Vint Cerf",
-    "Robert Kahn",
-    "Claude Shannon",
     "Dennis Ritchie",
     "Ken Thompson",
     "Linus Torvalds",
@@ -131,6 +129,8 @@ FIGURES = [
     "Muhammad Yunus",
     "Norman Borlaug",
     "Boyan Slat",
+    "Robert Kahn",
+    "Claude Shannon",
 ]
 
 
