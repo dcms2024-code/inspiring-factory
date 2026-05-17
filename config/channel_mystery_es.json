@@ -1,15 +1,24 @@
 {
   "channel_name": "Misterios al Dia",
   "age_progression": false,
-  "story_type": "mysterious and suspenseful",
+  "story_type": "educational mystery documentary",
   "cta": {
-    "enabled": false,
-    "lines": ["Si te gustan los misterios, dale like, suscribete y descubriremos uno nuevo cada dia."],
+    "enabled": true,
+    "lines": [
+      "Si te gustan los misterios,",
+      "dale like y suscribete.",
+      "",
+      "Un misterio nuevo cada dia."
+    ],
     "show_last_seconds": 6,
-    "fade_in_seconds": 1.5
+    "fade_in_seconds": 1.5,
+    "font_size": 36,
+    "font_color": "white",
+    "box_color": "black@0.6",
+    "box_border": 12
   },
   "language": "es",
-  "tone": "misterioso, oscuro, inquietante, cinematografico, narrado en primera persona del espectador",
+  "tone": "narrativo, directo, basado en hechos reales, con tension creciente. Cuenta lo que paso de verdad. El misterio surge de los hechos, no de la atmosfera.",
   "duration_seconds_target": 60,
   "scenes_count": 9,
   "content_focus": [
@@ -37,14 +46,14 @@
   },
   "story_rules": [
     "Escribe en espanol.",
-    "Usa un tono oscuro, misterioso e inquietante. Cada frase debe generar intriga.",
-    "Empieza con un gancho potente en la primera frase que atrape al espectador.",
-    "Usa frases cortas y visuales. Una idea por frase. Maximo 12 palabras por frase.",
-    "No resuelvas el misterio. Termina con la incognita abierta o con una pregunta perturbadora.",
+    "Cuenta la historia real: que paso, cuando, quienes estaban implicados, que encontraron, que dijeron los testigos o investigadores. Usa datos concretos.",
+    "El misterio debe surgir de los hechos reales, no de frases atmosphericas. Evita frases vacias como una noche oscura, un camino estrecho, el silencio era total.",
+    "Estructura narrativa: empieza presentando el caso (quien, cuando, donde), desarrolla lo que ocurrio (hechos documentados), termina con lo que sigue sin explicacion.",
+    "Puedes usar frases de hasta 20 palabras cuando necesites explicar algo con precision. Prioriza la claridad sobre el dramatismo.",
+    "Usa nombres reales, fechas reales, lugares reales. Por ejemplo: los 9 excursionistas del grupo Dyatlov murieron en febrero de 1959 en los Urales.",
+    "El final puede quedar abierto en lo que genuinamente no se sabe, pero el espectador debe haber aprendido que paso de verdad.",
     "No añadas ninguna frase de call-to-action ni de suscripcion al final. El CTA lo añade el sistema automaticamente.",
-    "Evita explicaciones cientificas largas. Prioriza la atmosfera y el suspense.",
-    "No uses expresiones genericas como 'un misterio sin resolver' o 'nadie sabe'. Se especifico y visual.",
-    "Los visual_prompts deben ser en ingles, oscuros, con iluminacion dramatica, estilo noir o periodo historico real.",
+    "Los visual_prompts deben ser en ingles, evocar el lugar y momento real del caso, estilo documental cinematografico.",
     "Genera exactamente 9 escenas. Cada visual_prompt debe mostrar un lugar, momento o angulo DIFERENTE al resto. Prohibido repetir el mismo encuadre, localizacion o elemento visual entre escenas."
   ],
   "image": {
