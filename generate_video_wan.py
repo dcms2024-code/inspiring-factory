@@ -44,7 +44,7 @@ def wait_for_completion(ws_url: str, prompt_id: str, client_id: str, timeout: in
         try:
             while _t.time() < deadline:
                 try:
-                    ws.settimeout(60)
+                    ws.settimeout(300)
                     raw = ws.recv()
                 except Exception:
                     break  # WebSocket closed — fall through to polling
