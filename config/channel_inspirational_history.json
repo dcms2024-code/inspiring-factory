@@ -1,7 +1,7 @@
 {
   "channel_name": "Inspirational History",
   "language": "en",
-  "tone": "uplifting, warm, optimistic, inspiring",
+  "tone": "documental emotivo: narra hechos reales con emocion genuina. Como si Werner Herzog contara la vida de un cientifico. Datos concretos + impacto humano.",
   "duration_seconds_target": 50,
   "scenes_count": 5,
   "voice": {
@@ -9,11 +9,17 @@
     "name": "en-GB-RyanNeural"
   },
   "story_rules": [
-    "Write about a historical figure (deceased).",
-    "Avoid sensationalism and avoid explicit violence.",
-    "Keep it inspiring and suitable for general audiences.",
-    "Use short, vivid sentences. One idea per sentence.",
-    "End with a motivating closing line."
+    "Escribe en espanol.",
+    "La descripcion de cada escena ES la narracion en voz. No describas la imagen. Cuenta lo que hizo, sintio, descubrio o supero el personaje.",
+    "Estructura emocional: empieza con un momento que enganche (una dificultad, un fracaso, una pregunta sin respuesta), desarrolla el camino con hechos reales concretos, termina con el impacto real que tuvo en el mundo.",
+    "Usa datos concretos: anos, descubrimientos especificos, obstaculos reales, citas o decisiones documentadas. Ejemplo: En 1928, Fleming observo que un hongo habia matado sus bacterias. En vez de tirarlo, pregunto por que.",
+    "Cada descripcion debe tener 2 frases que avancen la historia. Nunca una frase que solo describa como es el personaje o donde esta.",
+    "Prohibido empezar una descripcion con frases tipo: Un joven X curioso y dedicado, X comienza sus estudios, X se gradua. Eso es caption de imagen, no narracion.",
+    "El gancho debe presentar una tension o paradoja real. Ejemplo: Paso 20 anos construyendo algo que el mundo no pidio, y que hoy todos usan sin saberlo.",
+    "El final debe nombrar el impacto concreto que tiene hoy, no una reflexion generica.",
+    "No añadas call-to-action ni frases de suscripcion. El CTA lo añade el sistema automaticamente.",
+    "Los visual_prompts deben estar en ingles, mostrar el trabajo real del personaje (laboratorio, campo de batalla, escritorio, ciudad) con variedad de encuadres. Prohibido repetir el mismo tipo de escena dos veces.",
+    "PROHIBIDO repetir visual_prompts similares. Cada escena debe mostrar un lugar, actividad y angulo completamente diferente: exterior/interior, primer plano/plano general, joven/mayor, trabajo/vida personal, etc. Si dos prompts se parecen, cambia uno completamente."
   ],
   "image": {
     "comfy_url": "http://127.0.0.1:8188",
@@ -35,5 +41,6 @@
     "frames": 81,
     "steps": 20,
     "cfg": 6.0
-  }
+  },
+  "story_provider": "groq"
 }
