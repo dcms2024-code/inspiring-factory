@@ -31,23 +31,68 @@ def queue_prompt(comfy_url: str, workflow: dict, client_id: str) -> dict:
     return json.loads(urllib.request.urlopen(req).read())
 
 
-def wait_for_completion(ws_url: str, prompt_id: str, client_id: str) -> None:
-    ws = websocket.WebSocket()
-    ws.connect(f"{ws_url}?clientId={client_id}")
-    while True:
-        raw = ws.recv()
-        if isinstance(raw, bytes):
-            continue
-        msg = json.loads(raw)
-        if msg.get("type") == "executing":
-            data = msg.get("data", {})
-            if data.get("node") is None and data.get("prompt_id") == prompt_id:
-                break
-        elif msg.get("type") == "execution_error":
-            err_data = msg.get("data", {})
-            if err_data.get("prompt_id") == prompt_id:
-                raise RuntimeError(f"ComfyUI error: {err_data}")
-    ws.close()
+def wait_for_completion(ws_url: str, prompt_id: str, client_id: str, timeout: int = 7 * 3600) -> None:
+    import time as _t
+    deadline = _t.time() + timeout
+    http_url = ws_url.replace("ws://", "http://").replace("wss://", "https://")
+
+    # Try WebSocket; fall back to history polling if it disconnects
+    ws_done = False
+    try:
+        ws = websocket.WebSocket()
+        ws.connect(f"{ws_url}?clientId={client_id}", timeout=15)
+        try:
+            while _t.time() < deadline:
+                try:
+                    ws.settimeout(60)
+                    raw = ws.recv()
+                except Exception:
+                    break  # WebSocket closed — fall through to polling
+                if isinstance(raw, bytes):
+                    continue
+                msg = json.loads(raw)
+                if msg.get("type") == "executing":
+                    data = msg.get("data", {})
+                    if data.get("node") is None and data.get("prompt_id") == prompt_id:
+                        ws_done = True
+                        break
+                elif msg.get("type") == "execution_error":
+                    err_data = msg.get("data", {})
+                    if err_data.get("prompt_id") == prompt_id:
+                        raise RuntimeError(f"ComfyUI error: {err_data}")
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+    except RuntimeError:
+        raise
+    except Exception:
+        pass  # WebSocket connect failed — go straight to polling
+
+    if ws_done:
+        return
+
+    # Polling fallback: check history API every 15 s until job completes
+    print(f"  [WAN] WebSocket dropped, polling history for {prompt_id[:8]}...")
+    while _t.time() < deadline:
+        try:
+            with urllib.request.urlopen(f"{http_url}/history/{prompt_id}", timeout=10) as r:
+                history = json.loads(r.read())
+            if prompt_id in history:
+                h = history[prompt_id]
+                status = h.get("status", {})
+                if status.get("completed"):
+                    if status.get("status_str") == "error":
+                        raise RuntimeError(f"ComfyUI job failed: {status}")
+                    return  # Done!
+        except RuntimeError:
+            raise
+        except Exception:
+            pass
+        _t.sleep(15)
+
+    raise RuntimeError(f"Timeout ({timeout}s) waiting for ComfyUI job {prompt_id}")
 
 
 def get_output_videos(comfy_url: str, prompt_id: str) -> list[dict]:
@@ -81,6 +126,27 @@ def free_comfy_memory(comfy_url: str, unload_models: bool = False) -> None:
         _ur.urlopen(req)
     except Exception:
         pass
+
+def extract_last_frame(clip_path: str, out_path: str) -> bool:
+    """Extract the last frame of a video clip for use as next clip input."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+             '-count_packets', '-show_entries', 'stream=nb_read_packets',
+             '-of', 'csv=p=0', clip_path],
+            capture_output=True, text=True, timeout=30
+        )
+        n = max(0, int(r.stdout.strip()) - 1)
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', clip_path,
+             '-vf', 'select=eq(n\,' + str(n) + ')', '-vframes', '1', '-q:v', '2', out_path],
+            capture_output=True, timeout=30
+        )
+        return os.path.exists(out_path)
+    except Exception as e:
+        print(f'  last-frame extract failed: {e}')
+        return False
 
 
 def prepare_comfy_input(image_path: str, scene_num: int, comfy_input_dir: str | None) -> str:
@@ -277,6 +343,7 @@ def main() -> int:
     base_precision = video_cfg.get("base_precision", "fp16")
     quantization = video_cfg.get("quantization", "fp8_e4m3fn_scaled")
     blocks_to_swap = int(video_cfg.get("blocks_to_swap", 14))
+    last_frame_chain = bool(video_cfg.get("last_frame_chain", False))
     use_clip_vision = bool(video_cfg.get("use_clip_vision", False))
     comfy_input_dir = video_cfg.get("comfy_input_dir")
     negative_prompt = video_cfg.get(
@@ -304,6 +371,7 @@ def main() -> int:
 
     print(f"Generating {len(images)} WAN clips via ComfyUI at {comfy_url} ...")
 
+    prev_clip_path = None
     for img_file in images:
         scene_num = int(img_file.replace("scene_", "").replace(".png", ""))
         img_path = f"images/generated/{img_file}"
@@ -315,6 +383,12 @@ def main() -> int:
             continue
 
         client_id = str(uuid.uuid4())
+        # Use last frame of previous clip as input for continuous motion (no reset)
+        if last_frame_chain and prev_clip_path and os.path.exists(prev_clip_path):
+            chained_path = f"video/clips/last_frame_{scene_num:02d}.png"
+            if extract_last_frame(prev_clip_path, chained_path):
+                img_path = chained_path
+                print(f"  Scene {scene_num:02d}: chaining from last frame of clip {scene_num-1:02d}")
         image_name = prepare_comfy_input(img_path, scene_num, comfy_input_dir)
         workflow = build_i2v_workflow(
             diffusion_model=diffusion_model,
@@ -350,6 +424,7 @@ def main() -> int:
             v = videos[0]
             download_video(comfy_url, v["filename"], v.get("subfolder", ""), v.get("type", "output"), out_path)
             print(f"  Scene {scene_num:02d}: saved {out_path}")
+            prev_clip_path = out_path
             success = True
         finally:
             # On failure: unload models fully to free VRAM+RAM for next retry

@@ -1,4 +1,5 @@
 import argparse
+import io
 import json
 import os
 import time
@@ -57,6 +58,47 @@ def build_workflow(checkpoint: str, positive_prompt: str, negative_prompt: str, 
     }
 
 
+def fetch_wikipedia_image(name: str, width: int, height: int):
+    """Download Wikipedia portrait photo and resize to target dimensions (portrait crop)."""
+    from PIL import Image, ImageFilter
+    slug = urllib.parse.quote(name.replace(" ", "_"))
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+    req = urllib.request.Request(url, headers={"User-Agent": "inspiring-factory/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+        img_url = data.get("thumbnail", {}).get("source")
+        if not img_url:
+            print(f"  Wikipedia: no image for '{name}'")
+            return None
+        # Get higher resolution version by requesting larger size
+        img_url = img_url.replace("/330px-", "/800px-").replace("/220px-", "/800px-")
+        req2 = urllib.request.Request(img_url, headers={"User-Agent": "inspiring-factory/1.0"})
+        with urllib.request.urlopen(req2, timeout=15) as r2:
+            img_data = r2.read()
+        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+        # Scale to fill width
+        scale = width / img.width
+        new_h = int(img.height * scale)
+        img = img.resize((width, new_h), Image.LANCZOS)
+        if new_h >= height:
+            top = (new_h - height) // 3  # Bias toward upper face area
+            img = img.crop((0, top, width, top + height))
+        else:
+            # Pad with blurred background
+            bg = img.resize((width, height), Image.LANCZOS).filter(ImageFilter.GaussianBlur(25))
+            canvas = Image.new("RGB", (width, height))
+            canvas.paste(bg, (0, 0))
+            top = (height - new_h) // 2
+            canvas.paste(img, (0, top))
+            img = canvas
+        print(f"  Wikipedia: descargada foto real de '{name}' ({img.width}x{img.height})")
+        return img
+    except Exception as e:
+        print(f"  Wikipedia: fallo para '{name}': {e}")
+        return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--channel", default=default_channel_config_path())
@@ -69,12 +111,14 @@ def main() -> int:
     negative = channel["image"]["negative_prompt"]
     img_steps = int(channel["image"].get("steps", 25))
     img_cfg = float(channel["image"].get("cfg", 7))
+    use_wikipedia = channel["image"].get("use_wikipedia_photo", False)
 
     os.makedirs("images/generated", exist_ok=True)
 
     with open("stories/story.json", "r", encoding="utf-8") as f:
         story = json.load(f)
 
+    figure_name = story.get("figure", {}).get("name", "")
     client_id = str(uuid.uuid4())
 
     width = int(channel["image"].get("width", 640))
@@ -83,12 +127,23 @@ def main() -> int:
     scenes = story.get("scenes", [])
     print(f"Generating {len(scenes)} images via ComfyUI at {comfy_url} ...")
 
+    # Try Wikipedia photo if enabled
+    wiki_img = None
+    if use_wikipedia and figure_name:
+        wiki_img = fetch_wikipedia_image(figure_name, width, height)
+
     for scene in scenes:
         scene_number = int(scene["scene"])
         out_path = f"images/generated/scene_{scene_number:02d}.png"
 
         if os.path.exists(out_path):
             print(f"  Scene {scene_number:02d}: exists, skipping")
+            continue
+
+        # Use Wikipedia photo for portrait-type scenes (person described directly)
+        if wiki_img is not None:
+            wiki_img.save(out_path)
+            print(f"  Scene {scene_number:02d}: Wikipedia photo saved")
             continue
 
         visual_prompt = scene["visual_prompt"].strip()
@@ -102,8 +157,6 @@ def main() -> int:
             width=width,
             height=height,
         )
-
-        # Apply configurable sampler params
         workflow["5"]["inputs"]["steps"] = img_steps
         workflow["5"]["inputs"]["cfg"] = img_cfg
 

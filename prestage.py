@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Pre-generates story + voice for a figure into staging/. Launched during WAN of previous figure."""
 from __future__ import annotations
-import argparse, re, subprocess, sys, time
+import argparse, os, re, subprocess, sys, time
 from pathlib import Path
 
 DIR = Path("/home/andreu/inspiring-factory")
 PYTHON = "/home/andreu/miniconda3/bin/python"
-STAGING_DIR = DIR / "staging"
+# Read STAGING_DIR from env var — allows mystery (staging_mystery/) to override default
+STAGING_DIR = Path(os.environ.get("STAGING_DIR", str(DIR / "staging")))
 
 
 def log(msg):
@@ -28,37 +29,49 @@ def prestage(figure, channel):
         log(f"Ya pre-generado: {figure} — nada que hacer")
         return True
 
-    subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
-    time.sleep(3)
-    subprocess.Popen(["ollama", "serve"],
-                     stdout=open("/tmp/ollama_prestage.log", "w"), stderr=subprocess.STDOUT)
-    time.sleep(8)
+    # Only generate story if it doesn't already exist (e.g. manual ChatGPT script)
+    if not story_path.exists():
+        # Only start Ollama if GROQ_API_KEY is not available
+        groq_key = os.environ.get("GROQ_API_KEY", "")
+        if not groq_key:
+            subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
+            time.sleep(3)
+            subprocess.Popen(["ollama", "serve"],
+                             stdout=open("/tmp/ollama_prestage.log", "w"), stderr=subprocess.STDOUT)
+            time.sleep(8)
 
-    log(f"Historia: {figure}")
-    r = subprocess.run(
-        [PYTHON, "generate_and_save_story.py",
-         "--channel", channel,
-         "--figure", figure,
-         "--output", str(story_path)],
-        capture_output=True, text=True, cwd=DIR
-    )
-    if r.returncode != 0:
-        log(f"ERROR historia: {r.stderr[:300]}")
-        return False
-    log(f"Historia OK")
+        log(f"Historia: {figure}")
+        r = subprocess.run(
+            [PYTHON, "generate_and_save_story.py",
+             "--channel", channel,
+             "--figure", figure,
+             "--output", str(story_path)],
+            capture_output=True, text=True, cwd=DIR
+        )
+        if r.returncode != 0:
+            log(f"ERROR historia: {r.stderr[:300]}")
+            return False
+        log(f"Historia OK")
+    else:
+        log(f"Historia ya existe — saltando generacion")
 
-    log(f"Voz: {figure}")
-    r = subprocess.run(
-        [PYTHON, "generate_voice.py",
-         "--channel", channel,
-         "--story", str(story_path),
-         "--output-dir", str(staging)],
-        capture_output=True, text=True, cwd=DIR
-    )
-    if r.returncode != 0:
-        log(f"ERROR voz: {r.stderr[:300]}")
-        return False
-    log(f"Voz OK → {staging}/narration.mp3")
+    # Generate narration (TTS only, no Ollama needed)
+    if not narration_path.exists():
+        log(f"Voz: {figure}")
+        r = subprocess.run(
+            [PYTHON, "generate_voice.py",
+             "--channel", channel,
+             "--story", str(story_path),
+             "--output-dir", str(staging)],
+            capture_output=True, text=True, cwd=DIR
+        )
+        if r.returncode != 0:
+            log(f"ERROR voz: {r.stderr[:300]}")
+            return False
+        log(f"Voz OK -> {staging}/narration.mp3")
+    else:
+        log(f"Voz ya existe — saltando TTS")
+
     return True
 
 
@@ -68,7 +81,6 @@ if __name__ == "__main__":
     parser.add_argument("--channel", required=True)
     args = parser.parse_args()
 
-    import os
     os.chdir(DIR)
     success = prestage(args.figure, args.channel)
     sys.exit(0 if success else 1)

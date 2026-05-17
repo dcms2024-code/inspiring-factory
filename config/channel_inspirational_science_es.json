@@ -1,99 +1,101 @@
 {
-  "channel_name": "Ciencia e Ideas",
-  "cta": {
-    "enabled": false,
-    "lines": [
-      "Si cada dia quieres conocer",
-      "personajes que han cambiado la historia,",
-      "",
-      "sigueme y dale like"
+    "channel_name": "Ciencia e Ideas",
+    "cta": {
+        "enabled": false,
+        "lines": [
+            "Si cada dia quieres conocer",
+            "personajes que han cambiado la historia,",
+            "",
+            "sigueme y dale like"
+        ],
+        "show_last_seconds": 6,
+        "fade_in_seconds": 1.5,
+        "font_size": 36,
+        "font_color": "white",
+        "box_color": "black@0.6",
+        "box_border": 12
+    },
+    "language": "es",
+    "tone": "documental emotivo: narra hechos reales con emocion genuina. Como si Werner Herzog contara la vida de un cientifico. Datos concretos + impacto humano.",
+    "duration_seconds_target": 60,
+    "scenes_count": 9,
+    "content_focus": [
+        "personajes historicos de ciencia",
+        "ideas que cambiaron la historia",
+        "arte solo cuando ayuda a explicar ciencia o pensamiento"
     ],
-    "show_last_seconds": 6,
-    "fade_in_seconds": 1.5,
-    "font_size": 36,
-    "font_color": "white",
-    "box_color": "black@0.6",
-    "box_border": 12
-  },
-  "language": "es",
-  "tone": "documental emotivo: narra hechos reales con emocion genuina. Como si Werner Herzog contara la vida de un cientifico. Datos concretos + impacto humano.",
-  "duration_seconds_target": 60,
-  "scenes_count": 9,
-  "content_focus": [
-    "personajes historicos de ciencia",
-    "ideas que cambiaron la historia",
-    "arte solo cuando ayuda a explicar ciencia o pensamiento"
-  ],
-  "voice": {
-    "provider": "edge_tts",
-    "name": "es-ES-AlvaroNeural",
-    "rate": "-8%",
-    "volume": "+0%",
-    "pitch": "-8Hz",
-    "postprocess_filter": "rubberband=pitch=0.86:formant=preserved,loudnorm=I=-16:LRA=11:TP=-1.5",
-    "output_path": "audio/narration.mp3"
-  },
-  "subtitles": {
-    "font_name": "DejaVu Sans",
-    "font_size": 8,
-    "outline": 1,
-    "shadow": 1,
-    "alignment": 2,
-    "margin_v": 28,
-    "position": "bottom",
-    "notes": "Small subtitles near the bottom so they do not cover the artwork."
-  },
-  "story_rules": [
-    "Escribe en espanol.",
-    "La descripcion de cada escena ES la narracion en voz. No describas la imagen. Cuenta lo que hizo, sintio, descubrio o supero el personaje.",
-    "Estructura emocional: empieza con un momento que enganche (una dificultad, un fracaso, una pregunta sin respuesta), desarrolla el camino con hechos reales concretos, termina con el impacto real que tuvo en el mundo.",
-    "Usa datos concretos: anos, descubrimientos especificos, obstaculos reales, citas o decisiones documentadas. Ejemplo: En 1928, Fleming observo que un hongo habia matado sus bacterias. En vez de tirarlo, pregunto por que.",
-    "Cada descripcion debe tener 2 frases que avancen la historia. Nunca una frase que solo describa como es el personaje o donde esta.",
-    "Prohibido empezar una descripcion con frases tipo: Un joven X curioso y dedicado, X comienza sus estudios, X se gradua. Eso es caption de imagen, no narracion.",
-    "El gancho debe presentar una tension o paradoja real. Ejemplo: Paso 20 anos construyendo algo que el mundo no pidio, y que hoy todos usan sin saberlo.",
-    "El final debe nombrar el impacto concreto que tiene hoy, no una reflexion generica.",
-    "No añadas call-to-action ni frases de suscripcion. El CTA lo añade el sistema automaticamente.",
-    "Los visual_prompts deben estar en ingles, mostrar el trabajo real del personaje (laboratorio, campo de batalla, escritorio, ciudad) con variedad de encuadres. Prohibido repetir el mismo tipo de escena dos veces.",
-    "PROHIBIDO repetir visual_prompts similares. Cada escena debe mostrar un lugar, actividad y angulo completamente diferente: exterior/interior, primer plano/plano general, joven/mayor, trabajo/vida personal, etc. Si dos prompts se parecen, cambia uno completamente."
-  ],
-  "image": {
-    "comfy_url": "http://127.0.0.1:8188",
-    "checkpoint": "juggernaut.safetensors",
-    "width": 768,
-    "height": 1344,
-    "steps": 32,
-    "cfg": 6.5,
-    "prompt_suffix": "realistic animated feature film style, cinematic historical composition, warm light, expressive eyes, natural skin texture, rich period detail, vertical portrait framing, no text, no watermark",
-    "negative_prompt": "low quality, blurry, bad anatomy, distorted hands, extra fingers, deformed face, watermark, logo, text, readable letters, modern laptop, modern clothing, oversaturated, two heads, duplicate head, duplicate face, cloned face, multiple people, second person"
-  },
-  "video": {
-    "use_wan_i2v": true,
-    "slideshow_motion": "kenburns",
-    "comfy_url": "http://127.0.0.1:8188",
-    "comfy_input_dir": "/home/andreu/ai-tools/ComfyUI/input",
-    "diffusion_model": "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
-    "text_encoder": "umt5-xxl-enc-bf16.safetensors",
-    "vae_model": "Wan2_1_VAE_bf16.safetensors",
-    "use_clip_vision": false,
-    "clip_vision": "open-clip-vit-huge_fp16.safetensors",
-    "base_precision": "fp16",
-    "quantization": "fp8_e4m3fn_scaled",
-    "blocks_to_swap": 30,
-    "width": 480,
-    "height": 832,
-    "fps": 24,
-    "output_fps": 30,
-    "frames": 145,
-    "steps": 12,
-    "cfg": 5.0,
-    "negative_prompt": "low quality, blurry, static image, frozen frame, violent motion, morphing face, extra person, duplicate head, warped eyes, watermark, text"
-  },
-  "hardware_profile": {
-    "target_machine": "Ubuntu RTX 3090",
-    "host": "192.168.1.107",
-    "ssh_user": "andreu",
-    "recommended": true,
-    "notes": "Use this profile on the 3090 machine. The local Windows RTX 3070 can preview, but final WAN video should render on the 3090."
-  },
-  "story_provider": "groq"
+    "voice": {
+        "provider": "edge_tts",
+        "name": "es-ES-AlvaroNeural",
+        "rate": "-8%",
+        "volume": "+0%",
+        "pitch": "-8Hz",
+        "postprocess_filter": "rubberband=pitch=0.86:formant=preserved,loudnorm=I=-16:LRA=11:TP=-1.5",
+        "output_path": "audio/narration.mp3"
+    },
+    "subtitles": {
+        "font_name": "DejaVu Sans",
+        "font_size": 8,
+        "outline": 1,
+        "shadow": 1,
+        "alignment": 2,
+        "margin_v": 28,
+        "position": "bottom",
+        "notes": "Small subtitles near the bottom so they do not cover the artwork."
+    },
+    "story_rules": [
+        "Escribe en espanol.",
+        "La descripcion de cada escena ES la narracion en voz. No describas la imagen. Cuenta lo que hizo, sintio, descubrio o supero el personaje.",
+        "Estructura emocional: empieza con un momento que enganche (una dificultad, un fracaso, una pregunta sin respuesta), desarrolla el camino con hechos reales concretos, termina con el impacto real que tuvo en el mundo.",
+        "Usa datos concretos: anos, descubrimientos especificos, obstaculos reales, citas o decisiones documentadas. Ejemplo: En 1928, Fleming observo que un hongo habia matado sus bacterias. En vez de tirarlo, pregunto por que.",
+        "Cada descripcion debe tener 2 frases que avancen la historia. Nunca una frase que solo describa como es el personaje o donde esta.",
+        "Prohibido empezar una descripcion con frases tipo: Un joven X curioso y dedicado, X comienza sus estudios, X se gradua. Eso es caption de imagen, no narracion.",
+        "El gancho debe presentar una tension o paradoja real. Ejemplo: Paso 20 anos construyendo algo que el mundo no pidio, y que hoy todos usan sin saberlo.",
+        "El final debe nombrar el impacto concreto que tiene hoy, no una reflexion generica.",
+        "No añadas call-to-action ni frases de suscripcion. El CTA lo añade el sistema automaticamente.",
+        "Los visual_prompts deben estar en ingles, mostrar el trabajo real del personaje (laboratorio, campo de batalla, escritorio, ciudad) con variedad de encuadres. Prohibido repetir el mismo tipo de escena dos veces.",
+        "PROHIBIDO repetir visual_prompts similares. Cada escena debe mostrar un lugar, actividad y angulo completamente diferente: exterior/interior, primer plano/plano general, joven/mayor, trabajo/vida personal, etc. Si dos prompts se parecen, cambia uno completamente."
+    ],
+    "image": {
+        "comfy_url": "http://127.0.0.1:8188",
+        "checkpoint": "juggernaut.safetensors",
+        "width": 768,
+        "height": 1344,
+        "steps": 32,
+        "cfg": 6.5,
+        "prompt_suffix": "realistic animated feature film style, cinematic historical composition, warm light, expressive eyes, natural skin texture, rich period detail, vertical portrait framing, no text, no watermark",
+        "negative_prompt": "low quality, blurry, bad anatomy, distorted hands, extra fingers, deformed face, watermark, logo, text, readable letters, modern laptop, modern clothing, oversaturated, two heads, duplicate head, duplicate face, cloned face, multiple people, second person",
+        "use_wikipedia_photo": true
+    },
+    "video": {
+        "use_wan_i2v": true,
+        "slideshow_motion": "kenburns",
+        "comfy_url": "http://127.0.0.1:8188",
+        "comfy_input_dir": "/home/andreu/ai-tools/ComfyUI/input",
+        "diffusion_model": "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+        "text_encoder": "umt5-xxl-enc-bf16.safetensors",
+        "vae_model": "Wan2_1_VAE_bf16.safetensors",
+        "use_clip_vision": false,
+        "clip_vision": "open-clip-vit-huge_fp16.safetensors",
+        "base_precision": "fp16",
+        "quantization": "fp8_e4m3fn_scaled",
+        "blocks_to_swap": 30,
+        "width": 480,
+        "height": 832,
+        "fps": 24,
+        "output_fps": 30,
+        "frames": 145,
+        "steps": 12,
+        "cfg": 5.0,
+        "negative_prompt": "low quality, blurry, static image, frozen frame, violent motion, morphing face, extra person, duplicate head, warped eyes, watermark, text",
+        "last_frame_chain": true
+    },
+    "hardware_profile": {
+        "target_machine": "Ubuntu RTX 3090",
+        "host": "192.168.1.107",
+        "ssh_user": "andreu",
+        "recommended": true,
+        "notes": "Use this profile on the 3090 machine. The local Windows RTX 3070 can preview, but final WAN video should render on the 3090."
+    },
+    "story_provider": "groq"
 }
