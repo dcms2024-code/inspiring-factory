@@ -35,5 +35,6 @@
     "frames": 81,
     "steps": 20,
     "cfg": 6.0
-  }
+  },
+  "story_provider": "ollama"
 }

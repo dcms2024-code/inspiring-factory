@@ -89,5 +89,6 @@
     "ssh_user": "andreu",
     "recommended": true,
     "notes": "Use this profile on the 3090 machine. The local Windows RTX 3070 can preview, but final WAN video should render on the 3090."
-  }
+  },
+  "story_provider": "ollama"
 }

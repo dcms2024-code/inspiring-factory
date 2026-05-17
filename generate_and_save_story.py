@@ -111,7 +111,8 @@ def main() -> int:
     figure_name, figure_hint = pick_figure(figures, args.figure)
 
     prompt = build_prompt(channel, figure_name, figure_hint)
-    raw = run_task("story", prompt)
+    provider = channel.get("story_provider", "ollama")
+    raw = run_task("story", prompt, provider=provider)
 
     data = parse_json_strict(raw)
 

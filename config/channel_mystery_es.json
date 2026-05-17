@@ -92,5 +92,6 @@
     "host": "192.168.1.66",
     "ssh_user": "andreu",
     "recommended": true
-  }
+  },
+  "story_provider": "groq"
 }
