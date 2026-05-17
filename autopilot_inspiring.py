@@ -249,8 +249,10 @@ def run_wan_with_retry(figure: str) -> bool:
             log("Todos los clips ya existen — skip WAN")
             return True
 
+        subprocess.run(["pkill", "-f", "ComfyUI/main.py"], capture_output=True)
+        time.sleep(5)
         ensure_comfyui()
-        free_vram()
+        log("VRAM liberada")
 
         try:
             with open(wan_log_path, "a") as wl:
