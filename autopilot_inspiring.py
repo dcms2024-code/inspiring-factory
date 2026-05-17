@@ -18,7 +18,7 @@ from pathlib import Path
 
 DIR          = Path("/home/andreu/inspiring-factory")
 PYTHON       = "/home/andreu/miniconda3/bin/python"
-PI           = "andreu@192.168.1.60"
+PI           = "andreu@100.106.161.14"
 QUEUE_DIR    = "/home/andreu/youtube_bot/queue/inspiring-factory"
 CHANNEL      = "config/channel_inspirational_science_es.json"
 STATE_FILE   = DIR / "autopilot_state.json"
@@ -288,7 +288,7 @@ def copy_to_pi(local_path: Path, filename: str, title: str, description: str) ->
     for attempt in range(1, 4):
         log(f"rsync a Pi intento {attempt}/3 — {filename}")
         r = subprocess.run(
-            ["rsync", "-avP", "--inplace", str(local_path), remote],
+            ["rsync", "-avP", "--inplace", "-e", "ssh -o StrictHostKeyChecking=no", str(local_path), remote],
             timeout=600,
         )
         if r.returncode != 0:
@@ -368,7 +368,12 @@ def run_figure(figure: str, next_figure: str | None) -> bool:
     images = list((DIR / "images/generated").glob("*.png"))
     has_story = (DIR / "stories/story.json").exists()
 
-    # Solo limpiar si estamos desde cero (no hay clips ni imágenes)
+    # Siempre limpiar clips al inicio de cada figura (evita contaminación entre figuras)
+    for p in clips_dir().glob("clip_*.mp4"): p.unlink(missing_ok=True)
+    for p in clips_dir().glob("last_frame_*.png"): p.unlink(missing_ok=True)
+    for p in (DIR / "images/generated").glob("*.png"): p.unlink(missing_ok=True)
+
+    # Solo limpiar artefactos de audio/story si estamos desde cero
     if clips_count == 0 and not images:
         log("Limpiando artefactos de sesión anterior...")
         for p in ["audio/narration.mp3", "audio/subtitles.srt",
