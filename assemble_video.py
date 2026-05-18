@@ -141,7 +141,7 @@ def main() -> int:
                 print(f"  Clip {idx+1}: {actual_dur:.2f}s → {target_per_clip:.2f}s (slow {pts:.2f}x, minterp)")
                 run_ffmpeg([
                     "ffmpeg", "-y", "-i", clip_path,
-                    "-vf", f"setpts={pts:.4f}*PTS,minterp=fps=30:scd=none",
+                    "-vf", f"setpts={pts:.4f}*PTS,minterpolate=fps=30:scd=none",
                     "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
                     "-pix_fmt", "yuv420p", ext_path,
                 ])

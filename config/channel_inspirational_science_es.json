@@ -54,7 +54,8 @@
     "El final debe nombrar el impacto concreto que tiene hoy, no una reflexion generica.",
     "No añadas call-to-action ni frases de suscripcion. El CTA lo añade el sistema automaticamente.",
     "Los visual_prompts deben estar en ingles, mostrar el trabajo real del personaje (laboratorio, campo de batalla, escritorio, ciudad) con variedad de encuadres. Prohibido repetir el mismo tipo de escena dos veces.",
-    "PROHIBIDO repetir visual_prompts similares. Cada escena debe mostrar un lugar, actividad y angulo completamente diferente: exterior/interior, primer plano/plano general, joven/mayor, trabajo/vida personal, etc. Si dos prompts se parecen, cambia uno completamente."
+    "PROHIBIDO repetir visual_prompts similares. Cada escena debe mostrar un lugar, actividad y angulo completamente diferente: exterior/interior, primer plano/plano general, joven/mayor, trabajo/vida personal, etc. Si dos prompts se parecen, cambia uno completamente.",
+    "PROGRESION DE EDAD OBLIGATORIA: El visual_prompt de cada escena DEBE incluir la edad exacta del personaje en ese momento historico. Usa siempre una descripcion de edad en ingles: \"young boy 8 years old\", \"teenager 16 years old\", \"young man 22 years old\", \"man in his 30s\", \"middle-aged man 45 years old\", \"elderly man 70 years old\", etc. La edad en el visual_prompt DEBE coincidir con el periodo de vida narrado en esa escena. Un error de edad es un error critico."
   ],
   "image": {
     "comfy_url": "http://127.0.0.1:8188",
